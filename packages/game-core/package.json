@@ -1,0 +1,30 @@
+{
+  "name": "@spincards/game-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "@spincards/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "sim": "node --conditions=@spincards/source --import @swc-node/register/esm-register bin/sim.ts",
+    "progression": "node --conditions=@spincards/source --import @swc-node/register/esm-register bin/progression.ts"
+  },
+  "dependencies": {
+    "@spincards/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@swc-node/register": "^1.12.1",
+    "@swc/core": "^1.16.18"
+  }
+}

@@ -1,0 +1,109 @@
+# Dev overlay: hot reload via bind mount. Linux node_modules live in named volumes so they never
+# mix with the host's; the one-shot `deps` service installs them before apps start.
+x-dev-volumes: &dev-volumes
+  - ..:/app
+  - nm_root:/app/node_modules
+  - nm_api:/app/apps/api/node_modules
+  - nm_web:/app/apps/web/node_modules
+  - nm_admin:/app/apps/admin/node_modules
+  - nm_bot:/app/apps/bot/node_modules
+  - nm_shared:/app/packages/shared/node_modules
+  - nm_game_core:/app/packages/game-core/node_modules
+  - pnpm_store:/pnpm/store
+
+x-dev-node: &dev-node
+  volumes: *dev-volumes
+  depends_on:
+    deps:
+      condition: service_completed_successfully
+
+services:
+  deps:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    environment:
+      CI: 'true'
+    command: ['pnpm', 'install', '--frozen-lockfile']
+    volumes: *dev-volumes
+
+  # `make lint|typecheck|test` run here, so the host needs only Docker.
+  tools:
+    <<: *dev-node
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    profiles: [tools]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-spincards}:${POSTGRES_PASSWORD:-spincards}@postgres:5432/${POSTGRES_DB:-spincards}
+      TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-spincards}:${POSTGRES_PASSWORD:-spincards}@postgres:5432/spincards_test
+      TEST_REDIS_URL: redis://redis:6379/1
+    command: ['pnpm', 'test']
+
+  api:
+    <<: *dev-node
+    build:
+      target: dev
+    entrypoint: ['/app/apps/api/entrypoint.sh']
+    command: ['pnpm', '--filter', '@spincards/api', 'dev']
+
+  worker:
+    <<: *dev-node
+    build:
+      target: dev
+    command: ['pnpm', '--filter', '@spincards/api', 'dev:worker']
+    # The dev volumes plus the backup folder (YAML cannot extend an aliased list).
+    volumes:
+      - ..:/app
+      - nm_root:/app/node_modules
+      - nm_api:/app/apps/api/node_modules
+      - nm_web:/app/apps/web/node_modules
+      - nm_admin:/app/apps/admin/node_modules
+      - nm_bot:/app/apps/bot/node_modules
+      - nm_shared:/app/packages/shared/node_modules
+      - nm_game_core:/app/packages/game-core/node_modules
+      - pnpm_store:/pnpm/store
+      - backups:/backups
+    environment:
+      BACKUP_DIR: /backups
+      OPS_HEALTH_URLS: api=http://api:3000/health,bot=http://bot:3002/health,web=http://web:5173/,admin=http://admin:5174/admin/
+
+  web:
+    <<: *dev-node
+    build:
+      target: dev
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:5173/']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  admin:
+    <<: *dev-node
+    build:
+      target: dev
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:5174/admin/']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  bot:
+    <<: *dev-node
+    build:
+      target: dev
+
+volumes:
+  nm_root:
+  nm_api:
+  nm_web:
+  nm_admin:
+  nm_bot:
+  nm_shared:
+  nm_game_core:
+  pnpm_store:
+  backups:

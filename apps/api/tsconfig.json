@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": false,
+    "rootDir": "../.."
+  },
+  "include": ["src", "test", "vitest.config.ts", "prisma.config.ts", "scripts"]
+}

@@ -1,0 +1,65 @@
+# Single entry point. SITE_ADDRESS=":80" serves plain HTTP (dev, tunnel);
+# a domain name (prod) makes Caddy obtain a certificate automatically.
+{
+	admin off
+}
+
+# While a container restarts (a deploy), requests wait for it instead of getting 502. Caddy only
+# retries when it could not reach the upstream, so a request is never sent twice.
+(wait_for_upstream) {
+	lb_try_duration 30s
+	lb_try_interval 250ms
+}
+
+# Container health check: plain HTTP even when the site itself redirects to HTTPS.
+:8081 {
+	respond /healthz "ok" 200
+}
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# No X-Frame-Options: Telegram Web shows the Mini App in an iframe.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Internal bot routes live inside the compose network only.
+	handle /api/internal* {
+		respond 404
+	}
+
+	# Telegram webhook (prod, BOT_MODE=webhook); the bot checks the secret token header.
+	handle /bot/webhook {
+		reverse_proxy {$BOT_UPSTREAM:bot:3003} {
+			import wait_for_upstream
+		}
+	}
+
+	# /api/v1/... -> api:/v1/...
+	handle_path /api/* {
+		reverse_proxy {$API_UPSTREAM:api:3000} {
+			import wait_for_upstream
+		}
+	}
+
+	redir /admin /admin/ 308
+	handle /admin/* {
+		reverse_proxy {$ADMIN_UPSTREAM:admin:5174} {
+			import wait_for_upstream
+		}
+	}
+
+	handle {
+		reverse_proxy {$WEB_UPSTREAM:web:5173} {
+			import wait_for_upstream
+		}
+	}
+}

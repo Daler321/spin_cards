@@ -1,0 +1,322 @@
+/*
+ * D-168 "emerald" season design: a banknote. The bank keeps its own colours, ink and pattern; a
+ * guilloche rosette sits in the corner (never under the number), an engraved frame, bold serif digits.
+ * The tier is the material and reads at a glance: matte common, teal metal rare, gold foil epic,
+ * light pearl legendary, black-and-gold mythic.
+ * It overrides the classic look of card.css (which trophies of earlier seasons keep), so every rule
+ * here is one class more specific than the one it replaces. Layers: .gc-body palette and rosette,
+ * .gc-pattern bank pattern, .gc-material frame and foil, .gc-sheen light.
+ */
+.gc--d-emerald {
+  --e-from: color-mix(in srgb, var(--bank-from) 88%, #0b231b);
+  --e-to: color-mix(in srgb, var(--bank-to) 80%, #06140f);
+  --e-line: color-mix(in srgb, var(--ink) 20%, transparent);
+  --e-edge: color-mix(in srgb, var(--e-to) 65%, black);
+  box-shadow: 0 0.6em 1.6em rgb(0 0 0 / 0.5);
+}
+
+.gc--d-emerald .gc-body {
+  background: linear-gradient(140deg, var(--e-from), var(--e-to) 80%);
+}
+
+/* Guilloche rosette in the top right corner, fading out before the number. */
+.gc--d-emerald .gc-body::after {
+  content: '';
+  position: absolute;
+  top: -2.2em;
+  right: -2.2em;
+  width: 9em;
+  height: 9em;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(var(--e-line) 0 2deg, transparent 2deg 7deg),
+    repeating-radial-gradient(circle, var(--e-line) 0 0.05em, transparent 0.05em 0.3em);
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
+  mask: radial-gradient(circle, #000 30%, transparent 70%);
+}
+
+.gc--d-emerald .gc-pattern {
+  opacity: 0.5;
+}
+
+/* The engraved frame of a banknote: a dark band and a thin brass line inside the edge. */
+.gc--d-emerald .gc-material {
+  background: none;
+  mix-blend-mode: normal;
+  box-shadow:
+    inset 0 0 0 0.3em var(--e-edge),
+    inset 0 0 0 0.36em rgb(217 192 138 / 0.6);
+}
+
+.gc--d-emerald .gc-sheen {
+  background: none;
+}
+
+/* ── Type ─────────────────────────────────────────────────── */
+.gc--d-emerald .gc-bank,
+.gc--d-emerald .gc-balance,
+.gc--d-emerald .gc-holder-name {
+  font-family: var(--serif);
+}
+
+.gc--d-emerald .gc-bank {
+  letter-spacing: 0.04em;
+}
+
+.gc--d-emerald .gc-balance {
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.gc--d-emerald .gc-holder-name {
+  letter-spacing: 0.12em;
+}
+
+/* Bold embossed digits: a light edge below and a dark one above read on light and dark banks. */
+.gc--d-emerald .gc-number {
+  font-family: var(--serif);
+  font-size: 1.18em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-variant-numeric: lining-nums tabular-nums;
+  text-shadow:
+    0 1px 0 rgb(255 255 255 / 0.22),
+    0 -1px 0 rgb(0 0 0 / 0.35);
+}
+
+.gc--d-emerald .gc-mark {
+  bottom: 0.5em;
+}
+
+.gc--d-emerald .gc-tier {
+  font-family: var(--serif);
+  font-size: 0.7em;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  background: rgb(0 0 0 / 0.3);
+  color: #f6f0df;
+  backdrop-filter: none;
+}
+
+.gc--d-emerald .gc-tier--rare {
+  border-color: #8fe3e8;
+  background: linear-gradient(90deg, #0f4a52, #12606a);
+  color: #dff9fa;
+}
+
+.gc--d-emerald .gc-tier--epic {
+  border-color: #fff0c0;
+  background: linear-gradient(90deg, #f1dca0, #c9a24a);
+  color: #2a1d05;
+}
+
+.gc--d-emerald .gc-tier--legendary {
+  border-color: rgb(150 140 190 / 0.7);
+  background: linear-gradient(90deg, #2a2f45, #1b2130);
+  color: #f4f0ff;
+}
+
+.gc--d-emerald .gc-tier--mythic {
+  border-color: #fff0b8;
+  background: linear-gradient(90deg, #c9a24a, #fff0b8, #c9a24a);
+  color: #1a1205;
+}
+
+/* ── Tier materials ──────────────────────────────────────── */
+
+/* Common: matte paper, a plain dark frame and a faint rosette. */
+.gc--d-emerald.gc--common .gc-body {
+  filter: saturate(0.5) brightness(0.9);
+}
+
+.gc--d-emerald.gc--common .gc-body::after {
+  opacity: 0.5;
+}
+
+.gc--d-emerald.gc--common .gc-material {
+  box-shadow: inset 0 0 0 0.3em rgb(0 0 0 / 0.2);
+}
+
+/* Rare: cool teal metal — engraved lines, a teal frame line, a cold glow and a passing glint. */
+.gc--d-emerald.gc--rare {
+  box-shadow:
+    0 0 1em rgb(92 225 230 / 0.4),
+    0 0.6em 1.6em rgb(0 0 0 / 0.5);
+}
+
+.gc--d-emerald.gc--rare .gc-material {
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, rgb(190 245 248 / 0.2), transparent 55%);
+  box-shadow:
+    inset 0 0 0 0.3em var(--e-edge),
+    inset 0 0 0 0.4em #8fe3e8,
+    inset 0 0 1.4em rgb(92 225 230 / 0.35);
+}
+
+.gc--d-emerald.gc--rare .gc-sheen {
+  inset: 0 -100%;
+  border-radius: 0;
+  background: linear-gradient(110deg, transparent 42%, rgb(255 255 255 / 0.3) 50%, transparent 58%);
+  animation: gc-silk 4.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Epic: gold foil — a wide engraved gold frame, a foil sheen and a warm glow. */
+.gc--d-emerald.gc--epic {
+  --e-line: rgb(255 226 150 / 0.35);
+  box-shadow:
+    0 0 1.1em rgb(233 190 90 / 0.5),
+    0 0.6em 1.6em rgb(0 0 0 / 0.5);
+}
+
+.gc--d-emerald.gc--epic .gc-material {
+  background: linear-gradient(
+    125deg,
+    rgb(255 222 140 / 0.45),
+    rgb(255 222 140 / 0.08) 35%,
+    rgb(255 236 180 / 0.32) 62%,
+    rgb(200 150 50 / 0.18) 85%
+  );
+  box-shadow:
+    inset 0 0 0 0.16em #6e5216,
+    inset 0 0 0 0.36em #e9c870,
+    inset 0 0 0 0.44em #8a6a2a,
+    inset 0 0 0 0.48em rgb(255 240 190 / 0.6);
+}
+
+/* Legendary: a light pearl card with an iridescent film and a slow pearl glint; dark ink. */
+.gc--d-emerald.gc--legendary {
+  --tier-ink: #1b2130;
+  --tier-hl: #7b1fa2;
+  --e-line: rgb(40 40 80 / 0.16);
+  box-shadow:
+    0 0 1.2em rgb(220 210 255 / 0.45),
+    0 0.6em 1.6em rgb(0 0 0 / 0.5);
+}
+
+.gc--d-emerald.gc--legendary .gc-body {
+  filter: none;
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--bank-from) 30%, #f3f0f8),
+    color-mix(in srgb, var(--bank-to) 25%, #d6d8e6) 80%
+  );
+}
+
+.gc--d-emerald.gc--legendary .gc-pattern {
+  opacity: 0.3;
+}
+
+.gc--d-emerald.gc--legendary .gc-material {
+  background: linear-gradient(
+    120deg,
+    rgb(255 190 230 / 0.35),
+    rgb(190 200 255 / 0.3) 30%,
+    rgb(180 245 225 / 0.3) 55%,
+    rgb(255 240 190 / 0.35) 80%
+  );
+  box-shadow:
+    inset 0 0 0 0.3em rgb(255 255 255 / 0.55),
+    inset 0 0 0 0.38em rgb(150 140 190 / 0.55);
+}
+
+.gc--d-emerald.gc--legendary .gc-sheen {
+  /* A slow glint moved by transform (compositor only). */
+  inset: 0 -100%;
+  border-radius: 0;
+  background: linear-gradient(110deg, transparent 40%, rgb(255 255 255 / 0.5) 50%, transparent 60%);
+  mix-blend-mode: normal;
+  opacity: 1;
+  animation: gc-silk 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Mythic: black and gold, gold digits and a slow highlight. */
+.gc--d-emerald.gc--mythic {
+  --tier-ink: #f1d58f;
+  --tier-hl: #fff6d6;
+  --e-line: rgb(241 213 143 / 0.22);
+  box-shadow:
+    0 0 1.2em rgb(201 162 74 / 0.45),
+    0 0.6em 1.6em rgb(0 0 0 / 0.5);
+}
+
+.gc--d-emerald.gc--mythic .gc-body {
+  /* The bank shows as a glow in the top left corner, so mythic cards of different banks differ. */
+  background:
+    radial-gradient(
+      90% 80% at 0% 0%,
+      color-mix(in srgb, var(--bank-from) 45%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(120% 100% at 100% 100%, #2e220b, #07070a 60%);
+}
+
+.gc--d-emerald.gc--mythic .gc-pattern {
+  opacity: 0.25;
+}
+
+.gc--d-emerald.gc--mythic .gc-material {
+  box-shadow:
+    inset 0 0 0 0.1em #c9a24a,
+    inset 0 0 0 0.32em rgb(201 162 74 / 0.22),
+    inset 0 0 0 0.38em #c9a24a;
+}
+
+.gc--d-emerald.gc--mythic .gc-sheen {
+  background: linear-gradient(110deg, transparent 40%, rgb(255 231 160 / 0.3) 50%, transparent 60%);
+}
+
+.gc--d-emerald.gc--mythic .gc-number {
+  text-shadow: none;
+}
+
+.gc--d-emerald.gc--mythic .gc-digit {
+  background: linear-gradient(180deg, #fff4cf, #d5a948 60%, #8a6418);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gc--d-emerald.gc--mythic .gc-digit--pattern {
+  background: linear-gradient(180deg, #ffffff, #ffe9a8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 0 0.3em rgb(255 220 130 / 0.8));
+}
+
+/* Lists: a glint frozen mid-card would look like a stain. */
+.gc--d-emerald.gc--static.gc--rare .gc-sheen,
+.gc--d-emerald.gc--static.gc--legendary .gc-sheen,
+.gc--d-emerald.gc--static.gc--mythic .gc-sheen {
+  display: none;
+}
+
+/* Card back (deck on the main screen). */
+.gc-back--emerald {
+  background:
+    var(--pattern),
+    linear-gradient(
+      140deg,
+      color-mix(in srgb, var(--bank-from) 88%, #0b231b),
+      color-mix(in srgb, var(--bank-to) 80%, #06140f) 80%
+    );
+  background-size:
+    18px 18px,
+    cover;
+  box-shadow:
+    inset 0 0 0 4px rgb(0 0 0 / 0.2),
+    inset 0 0 0 5px rgb(217 192 138 / 0.5),
+    0 6px 16px rgb(0 0 0 / 0.35);
+}
+
+.gc-back--emerald .deck-number {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-variant-numeric: lining-nums;
+}

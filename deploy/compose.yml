@@ -1,0 +1,190 @@
+# Production stack for a VPS. Images are built elsewhere (`make release`) and loaded onto the
+# server (`make ship`); the server keeps only this folder: compose.yml, Caddyfile, spincards.sh,
+# .env (secrets, from env.example), release.env (TAG) and the *.tag files written by the scripts.
+# Run it through ./spincards.sh, which passes both env files.
+name: spincards
+
+x-app: &app
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '5'
+
+x-healthcheck: &healthcheck
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 30s
+
+x-db-env: &db-env
+  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379
+
+x-api-env: &api-env
+  <<: *db-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  PUBLIC_URL: https://${DOMAIN}
+  CORS_ORIGINS: https://${DOMAIN}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  JWT_SECRET: ${JWT_SECRET}
+  ADMIN_SECRET_KEY: ${ADMIN_SECRET_KEY}
+  INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+  # D-118: per process; API_PROCESSES x pool + worker must stay under PG_MAX_CONNECTIONS.
+  DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
+
+services:
+  postgres:
+    <<: *app
+    image: postgres:16.15-alpine
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-8MB}
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-200}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 256m
+    mem_limit: ${PG_MEM_LIMIT:-2g}
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      start_period: 10s
+
+  redis:
+    <<: *app
+    image: redis:7.4.11-alpine
+    # Leaderboards and limits must never be evicted.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
+    mem_limit: ${REDIS_MEM_LIMIT:-512m}
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      start_period: 10s
+
+  api:
+    <<: *app
+    image: spincards-api:${TAG:?run ./spincards.sh deploy <tag>}
+    environment:
+      <<: *api-env
+      RUN_MIGRATIONS: 'true'
+      # One process per CPU core (D-118).
+      API_PROCESSES: ${API_PROCESSES:-auto}
+      ADMIN_OWNER_LOGIN: ${ADMIN_OWNER_LOGIN:-}
+      ADMIN_OWNER_PASSWORD: ${ADMIN_OWNER_PASSWORD:-}
+    mem_limit: ${API_MEM_LIMIT:-1536m}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+
+  worker:
+    <<: *app
+    image: spincards-api:${TAG:?run ./spincards.sh deploy <tag>}
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *api-env
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      OPS_HEALTH_URLS: api=http://api:3000/health,bot=http://bot:3002/health,web=http://web:80/,admin=http://admin:80/admin/,proxy=http://proxy:8081/healthz
+    volumes:
+      # A host folder, so dumps are easy to copy off the server.
+      - ./backups:/backups
+    mem_limit: ${WORKER_MEM_LIMIT:-512m}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3001/health']
+
+  bot:
+    <<: *app
+    image: spincards-bot:${TAG:?run ./spincards.sh deploy <tag>}
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      BOT_MODE: webhook
+      BOT_WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET}
+      PUBLIC_URL: https://${DOMAIN}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      NOTIFY_ENABLED: ${NOTIFY_ENABLED:-true}
+      NOTIFY_KINDS: ${NOTIFY_KINDS:-}
+    mem_limit: ${BOT_MEM_LIMIT:-256m}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3002/health']
+
+  web:
+    <<: *app
+    image: spincards-web:${TAG:?run ./spincards.sh deploy <tag>}
+    mem_limit: 128m
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/']
+
+  admin:
+    <<: *app
+    image: spincards-admin:${TAG:?run ./spincards.sh deploy <tag>}
+    mem_limit: 128m
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/admin/']
+
+  proxy:
+    <<: *app
+    image: caddy:2.11.7-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      SITE_ADDRESS: ${DOMAIN}
+      WEB_UPSTREAM: web:80
+      ADMIN_UPSTREAM: admin:80
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 256m
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8081/healthz']
+      start_period: 5s
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

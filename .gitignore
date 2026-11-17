@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.vite/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+apps/api/src/generated/
+
+# Last `make release` tag
+infra/.release-tag
+# Server-side files of the deploy bundle
+deploy/.env
+deploy/release.env
+deploy/previous.tag
+deploy/shipped.tag
+# Playwright output
+apps/web/e2e-results/
+.claude/settings.local.json

@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`resolveSpin > is deterministic for a seed 1`] = `
+[
+  "rare:9126820063113495:287227:-",
+  "common:9997224268390037:180657:quad",
+  "epic:9630919824196875:601275:-",
+  "rare:9693010991145298:361843:-",
+  "common:9951049823781690:223639:-",
+]
+`;

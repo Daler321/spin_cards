@@ -1,0 +1,59 @@
+# Prod overlay: built images, no bind mounts. HTTPS on a domain is finalised in M9.
+x-prod: &prod
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *prod
+
+  redis:
+    <<: *prod
+
+  api:
+    <<: *prod
+    build:
+      target: runtime
+    environment:
+      NODE_ENV: production
+
+  worker:
+    <<: *prod
+    build:
+      target: runtime
+    command: ['node', 'dist/worker.js']
+    environment:
+      NODE_ENV: production
+
+  web:
+    <<: *prod
+    build:
+      target: runtime
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  admin:
+    <<: *prod
+    build:
+      target: runtime
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:80/admin/']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  bot:
+    <<: *prod
+    build:
+      target: runtime
+    environment:
+      NODE_ENV: production
+      BOT_MODE: webhook
+
+  proxy:
+    <<: *prod
+    environment:
+      WEB_UPSTREAM: web:80
+      ADMIN_UPSTREAM: admin:80

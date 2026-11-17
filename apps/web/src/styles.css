@@ -1,0 +1,3869 @@
+/* D-168: PT Serif (SIL OFL, ParaType) ships with the app: headings, money and the spin button. */
+@font-face {
+  font-family: 'PT Serif';
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/pt-serif-cyrillic-400.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'PT Serif';
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/pt-serif-latin-400.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC,
+    U+20BD, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'PT Serif';
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/pt-serif-cyrillic-700.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'PT Serif';
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/pt-serif-latin-700.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC,
+    U+20BD, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: dark;
+  /* D-168 "Emerald and brass": the game's own palette, the same whatever theme Telegram passes. */
+  --bg: #0a1a15;
+  --bg-2: #0f231c;
+  --section: #12291f;
+  --surface: rgb(217 192 138 / 0.06);
+  --line: rgb(217 192 138 / 0.24);
+  --text: #f1eada;
+  --hint: #9fb1a6;
+  --accent: #d9c08a;
+  --accent-text: #0f2e24;
+  --cream: #efe3c2;
+  --danger: #e8735a;
+  --gold: #d9c08a;
+  --luck: #7fe0a0;
+  --radius: 16px;
+  --serif: 'PT Serif', Georgia, 'Noto Serif', serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overscroll-behavior: none;
+  /* Rotating or scaled decorations (the wheel, glowing cards) never make the page scroll sideways. */
+  overflow-x: clip;
+}
+
+/* A full-screen page or a sheet is open: the page under it does not scroll (desktop wheel, two
+   scrollbars). */
+html:has(.overlay, .sheet-backdrop) {
+  overflow-y: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Press feedback on every button and tappable block: darker and a little smaller while held. */
+button,
+[role='button'] {
+  transition:
+    transform 0.09s ease-out,
+    filter 0.09s ease-out;
+  touch-action: manipulation;
+}
+
+button:not(:disabled):active,
+[role='button']:active {
+  transform: scale(0.97);
+  filter: brightness(0.85);
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  [role='button']:hover {
+    filter: brightness(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active,
+  [role='button']:active {
+    transform: none;
+  }
+}
+
+.screen-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+}
+
+.screen-loading::after {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--hint);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+.screen-message {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.screen-message h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.screen-message p {
+  margin: 0;
+  color: var(--hint);
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.roulette {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--section);
+}
+
+.avatar--initial {
+  display: grid;
+  place-content: center;
+  font-weight: 700;
+}
+
+.header-level {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.exp-bar {
+  display: block;
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--section);
+  overflow: hidden;
+}
+
+.exp-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.header-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.header-balance-label {
+  font-size: 11px;
+  color: var(--hint);
+  white-space: nowrap;
+}
+
+.header-balance-value {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.daily-button {
+  color: var(--gold);
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+.segmented {
+  display: flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--section);
+}
+
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hint);
+}
+
+.segmented button.is-active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ── Stage ─────────────────────────────────────────────── */
+.stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  min-height: 260px;
+}
+
+/* Grid items default to min-width: auto and would grow to their content's width. */
+.stage > * {
+  min-width: 0;
+}
+
+.stage-idle {
+  display: grid;
+  place-content: center;
+  height: 270px;
+}
+
+.stage-deck {
+  position: relative;
+  width: calc(var(--deck-w) + 10px);
+  height: calc(var(--deck-w) / 1.586 + 8px);
+}
+
+.stage-deck-card {
+  --card-width: var(--deck-w);
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  filter: none;
+}
+
+.stage-deck-card--0 {
+  transform: rotate(-8deg) translate(-14px, 6px);
+}
+
+.stage-deck-card--1 {
+  transform: rotate(4deg) translate(10px, -2px);
+}
+
+.stage-deck-card--2 {
+  animation: deck-float 3.2s ease-in-out infinite;
+}
+
+@keyframes deck-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ── Result ─────────────────────────────────────────────── */
+.result {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Cards are sized from this box (container queries), so nothing ever scrolls. */
+.result-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  /* Safe centring: when cards keep a readable size on a short screen, the area scrolls. */
+  place-content: safe center;
+  justify-items: center;
+  gap: 8px;
+  padding-inline: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  --single-w: max(min(88cqw, 320px, calc((100cqh - 90px) * 1.586)), min(88cqw, 230px));
+}
+
+.result-footer {
+  flex: none;
+  padding-inline: 16px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.result-flash {
+  position: absolute;
+  inset: -40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.result-card {
+  position: relative;
+  z-index: 1;
+  touch-action: none;
+}
+
+.result-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.result-value-label {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.result-value-amount {
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-pending {
+  margin: 0;
+  color: var(--hint);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--section);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.near-miss {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  text-align: center;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgb(217 192 138 / 0.15), rgb(255 120 60 / 0.15));
+  border: 1px solid rgb(217 192 138 / 0.4);
+  color: var(--gold);
+}
+
+.near-miss span {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.button {
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--section);
+  font-weight: 700;
+}
+
+.button--primary {
+  border-color: var(--cream);
+  background: var(--cream);
+  color: var(--accent-text);
+}
+
+/* ── Controls ─────────────────────────────────────────────── */
+.controls {
+  display: grid;
+  gap: 12px;
+}
+
+.section-label {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.luck-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.luck-meter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.luck-meter-value {
+  font-weight: 700;
+}
+
+.luck-meter-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--section);
+  overflow: hidden;
+}
+
+.luck-meter-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #b8955a, var(--cream));
+  transition: width 0.4s ease;
+}
+
+.luck-meter.is-full .luck-meter-value {
+  color: var(--gold);
+}
+
+/* The luck meter and the milestone (every 500th spin) side by side. */
+.meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.luck-meter--milestone .luck-meter-fill {
+  background: linear-gradient(90deg, #7b5bff, #b07bff);
+}
+
+/* The next spin is lucky: a gold button. */
+.spin-button.spin-button--lucky {
+  background: linear-gradient(180deg, #f6e3a8, #d2b06a);
+  color: var(--accent-text);
+  box-shadow:
+    inset 0 0 0 3px #f1dca0,
+    inset 0 0 0 4px rgb(15 46 36 / 0.35),
+    0 0 24px rgb(217 192 138 / 0.45);
+}
+
+.packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: 6px;
+}
+
+.pack {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 7px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+}
+
+.pack.is-active {
+  border-color: var(--accent);
+}
+
+.pack-name {
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pack-detail {
+  font-size: 11px;
+  color: var(--hint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pack.is-locked .pack-detail::before {
+  content: '🔒 ';
+}
+
+.payment {
+  display: grid;
+  gap: 6px;
+}
+
+.payment-options {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.payment-option {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.payment-option.is-active {
+  border-color: var(--accent);
+}
+
+.payment-option.is-short .payment-detail {
+  color: var(--danger);
+}
+
+.payment-detail {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hint);
+}
+
+/* D-147: the luck of the next spin, 0..100. */
+.luck-line {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.luck-line-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.luck-line-label {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.luck-line-value {
+  font-size: 14px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.luck-line-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  overflow: hidden;
+}
+
+.luck-line-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3fa76b, var(--luck));
+  transition: width 0.3s ease-out;
+}
+
+.luck-line.is-on .luck-line-value {
+  color: var(--luck);
+}
+
+.luck-line-parts {
+  text-align: right;
+}
+
+.spin-button {
+  min-height: 58px;
+  border: 1px solid #f6ebcb;
+  border-radius: 999px;
+  background: var(--cream);
+  color: var(--accent-text);
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  /* A thin engraved ring inside the edge, like the frame of a banknote. */
+  box-shadow:
+    inset 0 0 0 3px var(--cream),
+    inset 0 0 0 4px rgb(15 46 36 / 0.3),
+    0 12px 30px rgb(0 0 0 / 0.4);
+}
+
+.spin-button.is-busy {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.toast {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 100;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--section);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  font-size: 14px;
+  text-align: center;
+}
+
+.toast--success {
+  border: 1px solid rgb(127 224 160 / 0.5);
+}
+
+.toast--error {
+  border: 1px solid rgb(239 68 68 / 0.6);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes float {
+  50% {
+    transform: rotate(-1deg) translateY(-6px);
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  80%,
+  100% {
+    transform: rotate(0);
+  }
+  85% {
+    transform: rotate(-10deg);
+  }
+  90% {
+    transform: rotate(10deg);
+  }
+  95% {
+    transform: rotate(-6deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Shell (M5) ─────────────────────────────────────────── */
+.shell {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  /* Telegram's stable viewport height (Android keyboards/bars) with the CSS fallback. */
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px calc(76px + env(safe-area-inset-bottom));
+  gap: 12px;
+}
+
+.shell .roulette {
+  min-height: 0;
+  flex: 1;
+  padding: 0;
+  max-width: none;
+}
+
+.shell-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-player {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.tabbar {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: 100%;
+  max-width: 480px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  /* Opaque, no backdrop blur: blurring the spinning cards behind it every frame is costly. */
+  background: #08140f;
+  border-top: 1px solid rgb(217 192 138 / 0.18);
+}
+
+.tabbar-item {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  margin: 0 4px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #7f9387;
+}
+
+.tabbar-item svg {
+  width: 26px;
+  height: 26px;
+}
+
+.tabbar-item.is-active {
+  color: var(--gold);
+  background: rgb(217 192 138 / 0.12);
+}
+
+.tabbar-badge {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 8px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+/* ── Pages ─────────────────────────────────────────────── */
+.page {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-head h2,
+.section h3 {
+  margin: 0;
+}
+
+.page-head h2 {
+  font-size: 22px;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+}
+
+.section h3 {
+  font-size: 16px;
+}
+
+.hint {
+  color: var(--hint);
+  font-size: 13px;
+}
+
+.empty {
+  color: var(--hint);
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--section);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip--ok {
+  color: var(--luck);
+}
+
+.chip-button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--section);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.banner {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid rgb(217 192 138 / 0.4);
+  border-radius: 12px;
+  background: rgb(217 192 138 / 0.1);
+  color: var(--gold);
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+}
+
+.list-row--link {
+  width: 100%;
+  font-weight: 600;
+}
+
+.list-row--link::after {
+  content: '›';
+  color: var(--hint);
+  font-size: 20px;
+}
+
+.list-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.button--small {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.button--stars {
+  border: 1px solid rgb(217 192 138 / 0.6);
+  background: linear-gradient(135deg, rgb(217 192 138 / 0.22), rgb(240 165 42 / 0.12));
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.button--danger {
+  background: color-mix(in srgb, var(--danger) 20%, var(--section));
+  color: #fecaca;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: var(--section);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.segmented--wide {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+.segmented--wide button {
+  padding: 8px;
+  font-size: 13px;
+}
+
+/* ── Holder ─────────────────────────────────────────────── */
+.fan {
+  position: relative;
+  height: 150px;
+  display: grid;
+  place-items: center;
+  margin: 8px 0;
+}
+
+.fan-card {
+  position: absolute;
+  transform-origin: 50% 160%;
+}
+
+.fan-card .gc {
+  --card-width: 170px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.card-tile {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  /* Off-screen tiles are neither laid out nor painted until scrolled near. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
+}
+
+.card-tile .gc {
+  font-size: 8.5px;
+}
+
+.life {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.life--expired {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── Card detail ───────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+}
+
+.overlay--tabs {
+  /* Under the tab bar (z-index 20), which stays usable. */
+  z-index: 15;
+}
+
+.overlay--tabs .overlay-body {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+.overlay-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  background: var(--bg);
+}
+
+.overlay-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.overlay-body {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 16px;
+}
+
+.card-detail {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.card-detail-card {
+  touch-action: none;
+}
+
+.facts {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fact {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--section);
+}
+
+.fact--wide {
+  grid-column: 1 / -1;
+}
+
+.fact dt {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.fact dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.fact-strong {
+  font-size: 20px;
+}
+
+.actions {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.actions--row {
+  grid-template-columns: 1fr 1fr;
+}
+
+.actions-hint {
+  text-align: center;
+  font-size: 12px;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  display: grid;
+  /* Content never widens the sheet beyond the screen. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
+  background: var(--bg-2);
+  /* A long list (many cards) scrolls inside the sheet instead of running off the top. */
+  max-height: calc(var(--tg-viewport-height, 100dvh) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet h3,
+.sheet-text {
+  margin: 0;
+}
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Wallet ─────────────────────────────────────────────── */
+.balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.balance-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--section), var(--bg-2));
+}
+
+.balance-card strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.converter {
+  display: grid;
+  gap: 10px;
+}
+
+.converter-info {
+  display: grid;
+  gap: 2px;
+}
+
+.amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.amount--in {
+  color: var(--luck);
+}
+
+/* ── Bonuses ─────────────────────────────────────────────── */
+.streak {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.streak-day:last-child {
+  grid-column: span 2;
+}
+
+.streak-day {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: var(--section);
+  text-align: center;
+  min-height: 74px;
+}
+
+.streak-day.is-done {
+  opacity: 0.55;
+}
+
+.streak-day.is-current {
+  border-color: var(--gold);
+}
+
+.streak-label {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.streak-reward {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--hint);
+  overflow-wrap: anywhere;
+}
+
+.chest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--section);
+}
+
+.chest-icon {
+  width: 44px;
+  height: 44px;
+  color: var(--hint);
+}
+
+.chest-icon.is-ready {
+  color: var(--gold);
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+.chest-info {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.progress {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+/* ── Rating ─────────────────────────────────────────────── */
+.my-place {
+  padding: 4px 0;
+}
+
+.leaderboard {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lb-row {
+  display: grid;
+  grid-template-columns: 28px 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--section);
+}
+
+.lb-row.is-me {
+  outline: 1.5px solid var(--accent);
+}
+
+.lb-rank {
+  font-weight: 800;
+  text-align: center;
+}
+
+.lb-row--top1 .lb-rank {
+  color: var(--gold);
+}
+
+.lb-row--top2 .lb-rank {
+  color: #cbd5e1;
+}
+
+.lb-row--top3 .lb-rank {
+  color: #f59e0b;
+}
+
+.lb-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* D-137: the medals a player shows, on their own line so long names do not hide them. */
+.lb-medals {
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+}
+
+.player-medals {
+  display: block;
+  margin-top: 2px;
+  font-size: 18px;
+  letter-spacing: 0.1em;
+}
+
+.lb-score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.avatar--small {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.avatar--large {
+  width: 64px;
+  height: 64px;
+  font-size: 26px;
+}
+
+/* ── Profile, odds, text ───────────────────────────────── */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-head h2 {
+  margin: 0;
+}
+
+.referral-link {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--section);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--section);
+}
+
+.toggle input {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 28px;
+  margin: 0;
+  border-radius: 14px;
+  background: var(--bg-2);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.toggle input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked {
+  background: var(--accent);
+}
+
+.toggle input:checked::after {
+  transform: translateX(18px);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.odds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.odds-table {
+  font-size: 12px;
+}
+
+.odds-table th,
+.odds-table td {
+  padding: 8px 4px;
+  text-align: right;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.odds-table th:first-child,
+.odds-table td:first-child {
+  text-align: left;
+}
+
+.odds-table .gc-tier {
+  font-size: 10px;
+}
+
+.text-paragraph {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Onboarding ───────────────────────────────────────── */
+.onboarding {
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 16px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.onboarding-skip {
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  color: var(--hint);
+}
+
+.onboarding-slide {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.onboarding-slide h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.onboarding-slide p {
+  margin: 0;
+  color: var(--hint);
+  line-height: 1.5;
+}
+
+.onboarding-art {
+  width: 220px;
+  height: 140px;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.4);
+}
+
+.onboarding-art--0 {
+  background: linear-gradient(135deg, #3b8bff, #0b3a9c);
+  box-shadow:
+    0 0 24px rgb(0 229 255 / 0.4),
+    0 12px 30px rgb(0 0 0 / 0.4);
+}
+
+.onboarding-art--1 {
+  background: linear-gradient(135deg, #ffe55c, #f2b600);
+}
+
+.onboarding-art--2 {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgb(139 92 246 / 0.5), transparent 55%),
+    linear-gradient(135deg, #17141f, #050409 60%, #1a1424);
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.onboarding-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--section);
+}
+
+.onboarding-dots span.is-active {
+  background: var(--accent);
+}
+
+/* ── Roulette layout (fixed, no jumps) ─────────────────── */
+.shell:has(.roulette) {
+  height: var(--tg-viewport-stable-height, 100dvh);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell .roulette {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+/* Ribbons/results: from the top bar down to the spin row (which keeps its place). */
+.stage-overlay {
+  position: absolute;
+  z-index: 5;
+  /* The whole game area, spin row included: nothing shows through while the cards reveal. */
+  top: 0;
+  /* Edge to edge: out over the shell's 16px gutter, which comes back as padding. */
+  left: -16px;
+  right: -16px;
+  /* Down to the screen edge, under the tab bar: the shell's bottom padding leaves no strip. */
+  bottom: calc(-76px - env(safe-area-inset-bottom));
+  padding-inline: 16px;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  display: grid;
+  align-content: center;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* The result fills the overlay: a main area that sizes the cards to fit, and a footer. */
+.stage-result {
+  display: flex;
+  flex-direction: column;
+  /* Dropped cards take the whole game area: the spin controls hide behind them. */
+  top: 0;
+  bottom: 0;
+}
+
+.roulette.is-busy .controls-upper {
+  visibility: hidden;
+}
+
+.roulette.is-busy .spin-row {
+  opacity: 0.4;
+}
+
+.controls-upper {
+  display: grid;
+  gap: 8px;
+}
+
+.roulette-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  min-height: 38px;
+}
+
+.head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.head-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.head-action span {
+  color: var(--gold);
+}
+
+/* D-147: luck of the next spin, at the top; the details open in a sheet. */
+.luck-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid rgb(127 224 160 / 0.35);
+  border-radius: 999px;
+  background: rgb(127 224 160 / 0.1);
+  color: var(--hint);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.luck-chip.is-on {
+  color: var(--luck);
+}
+
+.luck-details {
+  display: grid;
+  gap: 12px;
+}
+
+.luck-details-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.luck-details-head h3 {
+  margin: 0;
+}
+
+.luck-details-icon {
+  font-size: 34px;
+}
+
+.luck-details-value {
+  font-size: 22px;
+  color: var(--luck);
+  font-variant-numeric: tabular-nums;
+}
+
+.stage {
+  position: relative;
+  min-height: 0;
+  display: block;
+}
+
+.stage-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  overflow-y: auto;
+}
+
+.stage-idle .stage-deck {
+  justify-self: center;
+}
+
+.stage-result {
+  align-content: start;
+  /* The gutter lives inside the result's parts, so card glows are not clipped at its edge. */
+  padding: 4px 0 8px;
+}
+
+.controls {
+  gap: 8px;
+  transition: opacity 0.2s;
+}
+
+.skip-catcher {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.quick {
+  display: flex;
+  gap: 6px;
+}
+
+.quick-chip {
+  padding: 6px 10px;
+  border: 1px solid #f1e3be;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f1e3be, #d2b577);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.packs-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.packs-timer {
+  font-size: 12px;
+  text-align: center;
+}
+
+.packs {
+  grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+}
+
+.pack {
+  padding: 7px 6px;
+}
+
+.pack .pack-name {
+  font-size: 12px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+.pack .pack-detail {
+  font-size: 10.5px;
+}
+
+.spin-row {
+  display: grid;
+  gap: 8px;
+}
+
+.count-picker {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+
+.count-picker button {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+/* ── Spin options: currency, pack, count, payment in one row ── */
+.spin-options {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.spin-options .region-toggle {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 40px;
+}
+
+.option-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.option-chip--grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.option-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.option-chip-luck {
+  flex: 0 0 auto;
+  color: var(--luck);
+  font-variant-numeric: tabular-nums;
+}
+
+.option-chip-chevron {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--hint);
+}
+
+/* Free spins are waiting: the pack button glows and takes them in one tap. */
+.option-chip.is-glow {
+  border-color: rgb(217 192 138 / 0.7);
+  background: rgb(217 192 138 / 0.16);
+  color: var(--gold);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Payment sheet ─────────────────────────────────────── */
+.pay-sheet {
+  display: grid;
+  gap: 12px;
+  max-height: 75vh;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.pay-sheet h3 {
+  margin: 0;
+}
+
+.pay-sheet-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.pay-sheet-sort {
+  display: flex;
+  gap: 4px;
+}
+
+.pay-sheet-body {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pay-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pay-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+  font-size: 14px;
+}
+
+.pay-tile {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+  font-size: 13px;
+}
+
+.pay-tile .gc {
+  font-size: 8px;
+}
+
+.pay-row.is-active,
+.pay-tile.is-active {
+  border-color: var(--accent);
+}
+
+.pay-row:disabled,
+.pay-tile:disabled {
+  opacity: 0.5;
+}
+
+.pay-row-main {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pay-row-main .hint {
+  font-size: 12px;
+}
+
+.pay-row-side,
+.pay-tile-info {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-tile-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.pay-luck {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--luck);
+}
+
+.pay-sheet .is-short {
+  color: var(--danger);
+}
+
+.pay-note {
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+.pay-empty {
+  margin: 0;
+}
+
+.pay-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--hint);
+}
+
+.pay-dot--rare {
+  background: #3b82f6;
+}
+
+.pay-dot--epic {
+  background: #ffc850;
+}
+
+.pay-dot--legendary {
+  background: #c9d6ff;
+}
+
+.pay-dot--mythic {
+  background: conic-gradient(#ff2fd6, #8b5cf6, #00e5ff, #ffd24a, #ff2fd6);
+}
+
+.spin-button {
+  min-height: 56px;
+  font-size: 18px;
+}
+
+/* Not enough on the card: copper instead of cream, same engraved ring. */
+.spin-button--topup {
+  border-color: #f3d3b8;
+  background: linear-gradient(180deg, #f0c9a0, #d9967a);
+  box-shadow:
+    inset 0 0 0 3px #efc39e,
+    inset 0 0 0 4px rgb(15 46 36 / 0.3),
+    0 12px 30px rgb(0 0 0 / 0.4);
+}
+
+.payment-option.is-short {
+  opacity: 0.75;
+}
+
+.result--many {
+  gap: 10px;
+}
+
+.result-grid {
+  --rows: 1;
+  /* Fit the height, but never below a size where the number stays readable (then scroll). */
+  --cell-w: max(
+    min(
+      calc((100cqw - 10px) / 2),
+      calc(((100cqh - 40px - 10px * (var(--rows) - 1)) / var(--rows) - 38px) * 1.586)
+    ),
+    min(calc((100cqw - 10px) / 2), 125px)
+  );
+  display: grid;
+  grid-template-columns: repeat(2, var(--cell-w));
+  justify-content: center;
+  gap: 10px;
+}
+
+.result-grid--rows2 {
+  --rows: 2;
+}
+
+.result-cell {
+  display: grid;
+  gap: 6px;
+  width: var(--cell-w);
+}
+
+.result-cell-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.result-cell-actions .button {
+  min-width: 0;
+  padding-inline: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.button--icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  padding: 0;
+}
+
+.button--icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.button--tiny {
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.result-actions--stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+/* ── Holder collection ─────────────────────────────────── */
+.collection {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgb(217 192 138 / 0.14), var(--section));
+}
+
+.card-tile {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+
+/* ── Wheel ─────────────────────────────────────────────── */
+.wheel {
+  position: relative;
+  width: min(78vw, 300px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+
+.wheel-disc {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 8px 20px rgb(0 0 0 / 0.45));
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  border: 12px solid transparent;
+  border-top: 20px solid var(--gold);
+  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.5));
+}
+
+.wheel-label {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.wheel-label--jackpot {
+  fill: var(--gold);
+}
+
+.chest-icon--l2 {
+  color: #9be7ea;
+}
+
+.chest-icon--l3 {
+  color: #a78bfa;
+}
+
+.chest-icon--l4 {
+  color: #f472b6;
+}
+
+.chest-icon--l5 {
+  color: var(--gold);
+}
+
+/* ── Transfers ─────────────────────────────────────────── */
+.transfer-options {
+  flex-wrap: wrap;
+}
+
+.transfer-fee {
+  margin: 0;
+}
+
+.chip-button:disabled {
+  opacity: 0.4;
+}
+
+.chip-button--ghost {
+  background: transparent;
+  color: var(--hint);
+}
+
+.payment-option.is-empty {
+  opacity: 0.4;
+}
+
+/* ── Holder sorting ─────────────────────────────────────── */
+.sort-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ── Region toggle (slider) ─────────────────────────────── */
+.region-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  min-width: 72px;
+  height: 32px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.region-toggle-knob {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  transition: transform 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.region-toggle.is-us .region-toggle-knob {
+  transform: translateX(100%);
+}
+
+.region-toggle-label {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-size: 15px;
+  white-space: nowrap;
+  font-weight: 800;
+  color: var(--hint);
+  transition: color 0.2s;
+}
+
+.region-toggle-label.is-on {
+  color: var(--accent-text);
+}
+
+/* ── Result: highlighted sums, rare auras, banners ────── */
+/* The amount inside a sell button: bold on a darker pill, readable on light and dark buttons. */
+.sum {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.25);
+  color: #fff;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aura {
+  position: relative;
+  isolation: isolate;
+  border-radius: calc(var(--cell-w, var(--single-w, 300px)) * 0.05);
+}
+
+.aura--epic::before,
+.aura--legendary::before,
+.aura--mythic::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: inherit;
+  filter: blur(10px);
+  will-change: opacity;
+  animation: aura-pulse 1.6s ease-in-out infinite;
+}
+
+.aura--epic::before {
+  background: rgb(217 192 138 / 0.7);
+}
+
+.aura--legendary::before {
+  inset: -9px;
+  background: conic-gradient(from 0deg, #e8f0ff, #a0b4ff, #ffffff, #c9d6ff, #e8f0ff);
+  animation: aura-pulse 1.4s ease-in-out infinite;
+}
+
+.aura--mythic::before {
+  inset: -12px;
+  filter: blur(12px);
+  background: conic-gradient(from 0deg, #ff2fd6, #8b5cf6, #00e5ff, #ffd24a, #ff2fd6);
+  animation: aura-pulse 1.1s ease-in-out infinite;
+}
+
+/* Opacity only: the blurred glow is drawn once and just fades (cheap on phones). */
+@keyframes aura-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.tier-banner {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 15px;
+  text-align: center;
+}
+
+.tier-banner span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.tier-banner--epic {
+  background: rgb(217 192 138 / 0.15);
+  color: var(--gold);
+}
+
+.tier-banner--legendary {
+  background: rgb(200 215 255 / 0.18);
+  color: #e8f0ff;
+  text-shadow: 0 0 10px rgb(160 180 255 / 0.9);
+}
+
+.tier-banner--mythic {
+  background: linear-gradient(90deg, rgb(255 47 214 / 0.25), rgb(0 229 255 / 0.25));
+  color: #fff;
+  font-size: 17px;
+  text-shadow: 0 0 12px #ff2fd6;
+}
+
+.tier-banner--milestone {
+  background: rgb(217 192 138 / 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura::before {
+    animation: none;
+  }
+}
+
+/* ── Spin reveal (D-164): every card at once, digits open one by one ── */
+.reveals {
+  display: grid;
+  gap: 10px;
+  /* Room for the settled pop (up to scale 1.08) and its glow. */
+  padding: 0 10px;
+}
+
+.reveal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reveals--1 .reveal-grid {
+  grid-template-columns: minmax(0, 280px);
+  justify-content: center;
+}
+
+.reveal-cell {
+  container-type: inline-size;
+}
+
+/* Light face: no blend layers or shadows while it flickers; the loop only swaps data-tier and text. */
+.rv-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.586;
+  border-radius: 5cqw;
+  font-size: 5cqw;
+  color: var(--rv-ink);
+  background: var(--rv-bg);
+  contain: layout paint style;
+  --rv-bg: linear-gradient(135deg, #5b6170, #2c3039);
+  --rv-ink: #e9ecf2;
+}
+
+.rv-card[data-tier='rare'] {
+  --rv-bg: linear-gradient(135deg, #0ea5c6, #0b3d5c);
+  --rv-ink: #e0fbff;
+}
+
+.rv-card[data-tier='epic'] {
+  --rv-bg: linear-gradient(135deg, #e0a826, #6b4708);
+  --rv-ink: #fff4d0;
+}
+
+.rv-card[data-tier='legendary'] {
+  --rv-bg: linear-gradient(135deg, #e8f0ff, #7f90d6);
+  --rv-ink: #10162e;
+}
+
+.rv-card[data-tier='mythic'] {
+  --rv-bg: linear-gradient(135deg, #ff2fd6, #8b5cf6 50%, #00e5ff);
+  --rv-ink: #ffffff;
+}
+
+.rv-chip {
+  position: absolute;
+  top: 24%;
+  left: 8%;
+  width: 14%;
+  aspect-ratio: 1.3;
+  border-radius: 0.3em;
+  background: linear-gradient(135deg, #f3d27a, #b88a2c);
+}
+
+.rv-tier {
+  position: absolute;
+  top: 8%;
+  right: 7%;
+  font-size: 0.8em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rv-balance {
+  position: absolute;
+  top: 25%;
+  right: 7%;
+  font-size: 1.35em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rv-number {
+  position: absolute;
+  left: 8%;
+  right: 6%;
+  bottom: 18%;
+  display: flex;
+  justify-content: space-between;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.3em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rv-digit {
+  opacity: 0.45;
+}
+
+.rv-digit.is-open {
+  opacity: 1;
+}
+
+/* Settled rare cards light up in their tier colour; Common stays plain. */
+.rv-card.is-done[data-tier='rare'] {
+  box-shadow:
+    0 0 0 2px #00e5ff,
+    0 0 20px rgb(0 229 255 / 0.65);
+  animation: rv-pop 0.4s ease-out both;
+}
+
+.rv-card.is-done[data-tier='epic'] {
+  box-shadow:
+    0 0 0 2px var(--gold),
+    0 0 24px rgb(217 192 138 / 0.75);
+  animation: rv-pop 0.4s ease-out both;
+}
+
+.rv-card.is-done[data-tier='legendary'] {
+  box-shadow:
+    0 0 0 3px #e8f0ff,
+    0 0 32px rgb(160 180 255 / 0.95);
+  animation: rv-pop-big 0.45s ease-out both;
+}
+
+.rv-card.is-done[data-tier='mythic'] {
+  box-shadow:
+    0 0 0 3px #ff2fd6,
+    0 0 38px rgb(255 47 214 / 0.95),
+    0 0 64px rgb(0 229 255 / 0.55);
+  animation: rv-pop-big 0.45s ease-out both;
+}
+
+/* D-168 "emerald" season: banknote tones, guilloche and serif digits on the same light face. */
+.rv-card--emerald {
+  --rv-bg: linear-gradient(140deg, #3d4a44, #1b2420);
+  --rv-ink: #e9efe9;
+  background:
+    repeating-radial-gradient(
+      circle at 84% 24%,
+      rgb(255 255 255 / 0.08) 0 1px,
+      transparent 1px 0.3em
+    ),
+    var(--rv-bg);
+  box-shadow:
+    inset 0 0 0 0.25em rgb(0 0 0 / 0.18),
+    inset 0 0 0 0.3em rgb(217 192 138 / 0.4);
+}
+
+.rv-card--emerald[data-tier='rare'] {
+  --rv-bg: linear-gradient(140deg, #1f6f78, #0b2f38);
+  --rv-ink: #e0fbff;
+}
+
+.rv-card--emerald[data-tier='epic'] {
+  --rv-bg: linear-gradient(140deg, #c9a35a, #5a3f12);
+  --rv-ink: #fff4d0;
+}
+
+.rv-card--emerald[data-tier='legendary'] {
+  --rv-bg: linear-gradient(140deg, #ece6d4, #9aa5b8);
+  --rv-ink: #14202a;
+}
+
+.rv-card--emerald[data-tier='mythic'] {
+  --rv-bg: radial-gradient(120% 100% at 100% 100%, #2e220b, #07070a 60%);
+  --rv-ink: #f1d58f;
+}
+
+.rv-card--emerald .rv-number,
+.rv-card--emerald .rv-balance {
+  font-family: var(--serif);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.rv-card--emerald.is-done[data-tier='rare'] {
+  box-shadow:
+    0 0 0 2px #5ce1e6,
+    0 0 20px rgb(92 225 230 / 0.6);
+}
+
+.rv-card--emerald.is-done[data-tier='legendary'] {
+  box-shadow:
+    0 0 0 3px #f6f0df,
+    0 0 32px rgb(246 240 223 / 0.8);
+}
+
+.rv-card--emerald.is-done[data-tier='mythic'] {
+  box-shadow:
+    0 0 0 3px #c9a24a,
+    0 0 38px rgb(241 213 143 / 0.85),
+    0 0 64px rgb(201 162 74 / 0.45);
+}
+
+@keyframes rv-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes rv-pop-big {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.14);
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1.08);
+  }
+}
+
+.reveals--milestone .reveal-grid {
+  padding: 8px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, transparent, rgb(217 192 138 / 0.14), transparent);
+}
+
+.reveal-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.milestone-banner {
+  justify-self: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f6e3a8, #d2b06a);
+  color: var(--accent-text);
+  font-weight: 800;
+  font-size: 13px;
+  animation: aura-pulse 1.2s ease-in-out infinite;
+}
+.aura {
+  isolation: isolate;
+}
+
+/* Idle deck: showcase numbers laid out like on a real card (four blocks, size from the width). */
+.stage-deck-card {
+  font-size: calc(var(--card-width) / 20);
+}
+
+.stage-deck-card .deck-chip {
+  position: absolute;
+  top: 2.6em;
+  left: 0.9em;
+  width: 2.6em;
+  height: 2em;
+  border-radius: 0.35em;
+  background: linear-gradient(135deg, #f3d27a, #b88a2c);
+}
+
+.stage-deck-card .deck-number {
+  position: absolute;
+  top: 5.15em;
+  left: 0.9em;
+  right: 0.9em;
+  display: flex;
+  justify-content: space-between;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.12em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--ink, #fff);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+}
+
+/* The front card stands straight: its number reads level. */
+.stage-deck-card--2 {
+  transform: none;
+  box-shadow:
+    0 0 0 2px rgb(217 192 138 / 0.9),
+    0 0 26px rgb(217 192 138 / 0.45),
+    0 10px 24px rgb(0 0 0 / 0.4);
+}
+
+.stage-deck-card--2 .deck-number {
+  color: #ffe9a6;
+  text-shadow: 0 0 8px rgb(217 192 138 / 0.8);
+}
+
+/* ── Player profile sheet (rating) ─────────────────────── */
+.lb-row[role='button'] {
+  cursor: pointer;
+}
+
+.player-sheet {
+  display: grid;
+  gap: 12px;
+  max-height: 75dvh;
+  overflow-y: auto;
+}
+
+.player-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-head h3 {
+  margin: 0;
+}
+
+.player-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.player-cards .gc {
+  font-size: 8px;
+}
+
+.fact-detail {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hint);
+}
+
+/* ── Required subscription ─────────────────────────────── */
+/* One centred column: the channel buttons and «I joined» share its width. */
+.subscribe {
+  grid-template-columns: min(100%, 340px);
+  justify-content: center;
+}
+
+.subscribe-channels {
+  display: grid;
+  gap: 8px;
+}
+
+/* ── Brand: wordmark over the deck and a quiet themed background ── */
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.brand-card {
+  position: relative;
+  width: 26px;
+  height: 17px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #e9c46a, #a87a22);
+  box-shadow: 0 0 10px rgb(233 196 106 / 0.35);
+}
+
+.brand-card::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  width: 6px;
+  height: 5px;
+  border-radius: 1px;
+  background: rgb(60 40 5 / 0.55);
+}
+
+.brand-card::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(60 40 5 / 0.35);
+}
+
+.brand-name {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+/* Guilloche rings (as on a banknote) round a soft emerald glow: one fixed layer painted once (no
+   background-attachment: fixed, which repaints on every scroll on iOS). */
+body {
+  background-color: var(--bg);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-radial-gradient(
+      circle at 50% 38%,
+      rgb(217 192 138 / 0.05) 0 1px,
+      transparent 1px 10px
+    ),
+    radial-gradient(80% 42% at 50% 38%, #174536, transparent 72%);
+  transform: translateZ(0);
+}
+
+/* ── Card viewer (spin, share, save) ───────────────────── */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 22px;
+  padding: 16px;
+  background: rgb(5 7 12 / 0.94);
+  perspective: 1200px;
+}
+
+.viewer-card {
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.viewer-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: min(92vw, 400px);
+}
+
+.viewer-hint {
+  font-size: 12px;
+}
+
+.result-card,
+.result-cell .aura {
+  cursor: zoom-in;
+}
+
+/* The deck follows the stage height (short desktop windows): it never runs into the controls. */
+.stage {
+  container-type: size;
+}
+
+.stage-idle {
+  --deck-w: clamp(110px, calc((100cqh - 110px) * 1.3), 210px);
+  height: 100%;
+}
+
+@container (max-height: 210px) {
+  .brand-mark {
+    margin-bottom: 10px;
+  }
+}
+
+@container (max-height: 160px) {
+  .brand-mark {
+    display: none;
+  }
+}
+
+/* The app sits above the fixed background layer. */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Share frame: snapshotted off screen for shared/saved pictures ── */
+.share-stage {
+  position: fixed;
+  top: 0;
+  left: -20000px;
+  pointer-events: none;
+}
+
+.share-frame {
+  width: 1200px;
+  height: 900px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 48px;
+  background:
+    radial-gradient(ellipse 90% 50% at 50% 0%, rgb(233 196 106 / 0.22), transparent 70%), #111318;
+}
+
+.share-frame .aura::before {
+  animation: none;
+}
+
+.share-frame-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.share-frame-brand .brand-card {
+  width: 60px;
+  height: 40px;
+  border-radius: 6px;
+}
+
+.share-frame-brand .brand-name {
+  font-size: 56px;
+}
+
+/* Wallet history filters (D-122): two scrollable rows of chips. */
+.history-filters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chips .chip-button {
+  flex: none;
+  white-space: nowrap;
+}
+
+.chips-gap {
+  flex: none;
+  width: 8px;
+}
+
+/* Quests (D-124). */
+.quests .segmented {
+  margin-bottom: 6px;
+}
+
+.quests-ready {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: #2a1d05;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.quest-list {
+  display: grid;
+  gap: 8px;
+}
+
+.quests-done {
+  text-align: center;
+}
+
+.quest {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--section);
+}
+
+.quest-head,
+.quest-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.quest-head strong {
+  font-size: 14px;
+}
+
+.quest-progress {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hint);
+}
+
+.quest.is-done:not(.is-claimed) {
+  box-shadow: inset 0 0 0 1px rgb(255 214 102 / 55%);
+}
+
+.quest.is-done:not(.is-claimed) .quest-progress {
+  color: var(--gold);
+}
+
+.quest.is-claimed {
+  opacity: 0.6;
+}
+
+.quest .luck-meter-track {
+  background: rgb(0 0 0 / 35%);
+}
+
+.chip-button.quest-claim {
+  background: linear-gradient(180deg, #f6e3a8, #d2b06a);
+  color: var(--accent-text);
+  font-weight: 800;
+}
+
+/* Season rating header (D-125). */
+.season-info {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--section);
+  box-shadow: inset 0 0 0 1px rgb(255 214 102 / 30%);
+}
+
+.season-info-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.season-rewards {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.season-rewards li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.season-rewards b {
+  color: var(--gold);
+}
+
+/* Album, the permanent collection (D-126). */
+.album {
+  display: grid;
+  gap: 12px;
+}
+
+.album-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.album-banks {
+  display: grid;
+  gap: 8px;
+}
+
+.album-bank {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--section);
+}
+
+.album-bank-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.album-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.album-tiers {
+  display: flex;
+  gap: 6px;
+}
+
+.album-tier {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1.5px dashed rgb(255 255 255 / 18%);
+  color: rgb(255 255 255 / 25%);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.album-tier.is-got {
+  border-style: solid;
+  color: var(--text);
+  background: rgb(255 255 255 / 6%);
+}
+
+.album-tier--mythic.is-got {
+  color: var(--gold);
+  box-shadow: 0 0 10px rgb(255 214 102 / 40%);
+}
+
+.album-patterns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.album-pattern {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--section);
+  font-size: 13px;
+  opacity: 0.45;
+}
+
+.album-pattern.is-got {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px rgb(255 214 102 / 35%);
+}
+
+.spin-limit {
+  display: block;
+  font-size: 11px;
+  color: var(--hint);
+}
+
+.spin-limit.is-out {
+  color: #f59e0b;
+}
+
+.button--gold {
+  background: linear-gradient(180deg, #f6e3a8, #d2b06a);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+
+.season-progress {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: left;
+}
+
+/* Transfers to players (D-131). */
+.row-form {
+  display: flex;
+  gap: 8px;
+}
+
+.row-form .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.p2p-recipient {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--section);
+}
+
+/* Medals (D-133). */
+.medals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.medal {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: var(--section);
+  text-align: center;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.medal.is-earned {
+  opacity: 1;
+  filter: none;
+  box-shadow: inset 0 0 0 1px rgb(255 214 102 / 40%);
+}
+
+.medal-icon {
+  font-size: 26px;
+}
+
+.medal-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.medal-desc {
+  font-size: 10px;
+  color: var(--hint);
+}
+
+.medal {
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.medal.is-shown {
+  box-shadow:
+    inset 0 0 0 2px var(--gold),
+    0 0 12px rgb(217 192 138 / 35%);
+}
+
+.medal-rarity {
+  font-size: 10px;
+  color: var(--gold);
+}
+
+/* Tips for new players: one at a time, above the controls. */
+.coach-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 6px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--section));
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.coach-hint-text {
+  flex: 1;
+}
+
+.coach-hint-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--hint);
+}
+
+.result-explain {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--hint);
+  text-align: left;
+}
+
+/* Home call to invite friends, under the idle deck. */
+.invite-banner {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.invite-banner-text {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.invite-banner-text span {
+  opacity: 0.75;
+}
+
+.invite-banner-cta {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* D-157: the channel quest above the quest tabs. */
+.quest--channel {
+  margin-bottom: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.quest-channel-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* D-158: steps of the invite quest. */
+.invite-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.invite-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.invite-step-reward {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--hint);
+}
+
+.invite-step.is-ready .invite-step-reward {
+  color: var(--gold);
+}
+
+.invite-step.is-claimed {
+  opacity: 0.6;
+}
+
+/* ── Wallet: balances open the top-up from a card ─────── */
+button.balance-card {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.balance-card-action {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.topup-cards {
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Header: avatar, level, balance and the actions fit one row even with the gift on a narrow phone ── */
+.header {
+  /* Equal side columns keep the balance in the middle of the screen. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+
+.header .avatar {
+  width: 38px;
+  height: 38px;
+  color: var(--gold);
+  /* A brass ring with a thin outer line, like a coin. */
+  box-shadow:
+    0 0 0 1px var(--gold),
+    0 0 0 4px var(--bg),
+    0 0 0 5px rgb(217 192 138 / 0.35);
+}
+
+.header .header-player {
+  justify-self: start;
+  gap: 6px;
+}
+
+.header .header-level {
+  gap: 5px;
+  font-size: 13px;
+}
+
+.header .exp-bar {
+  width: 56px;
+  height: 5px;
+  border-radius: 3px;
+}
+
+.header .header-balance-label {
+  font-size: 11px;
+}
+
+.header .header-balance-value {
+  /* Long totals (37 187,20 ₽) must not run into the gift and luck buttons on narrow phones. */
+  font-size: clamp(14px, 4.2vw, 19px);
+  white-space: nowrap;
+}
+
+.header .header-actions {
+  justify-self: end;
+  gap: 6px;
+}
+
+.header .icon-button {
+  width: 36px;
+  height: 36px;
+}
+
+.header .icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.header .luck-chip {
+  padding: 5px 9px;
+  font-size: 14px;
+}
+
+.head-action {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.quick-chip {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* ── Bonuses: a link to the quests, money and Stars side by side ── */
+.quests-link .quests-ready {
+  margin-left: 8px;
+}
+
+.button-row {
+  display: grid;
+  gap: 8px;
+}
+
+.button-row--pair {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* ── Mini-games (D-169) ─────────────────────────────────── */
+.game-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.game-tile {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--section);
+  color: var(--text);
+  text-align: left;
+}
+
+.game-tile strong {
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.game-tile .hint {
+  font-size: 12px;
+}
+
+.game-tile-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.game-tile-icon .fill {
+  fill: var(--gold);
+  stroke: none;
+}
+
+.mg {
+  display: grid;
+  gap: 14px;
+}
+
+.mg-field {
+  display: grid;
+  gap: 6px;
+}
+
+.mg-range {
+  width: 100%;
+  accent-color: var(--gold);
+}
+
+.mg-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.mg-stats > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.mg-stats strong {
+  font-size: 18px;
+  color: var(--cream);
+}
+
+.mg-result {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--hint);
+}
+
+.mg-result--win {
+  color: var(--luck);
+}
+
+.mg-center {
+  margin: 0;
+  text-align: center;
+}
+
+.mg-action {
+  width: 100%;
+}
+
+.mg-rules {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.mg-rules summary {
+  font-weight: 700;
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.mg-rules p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hint);
+}
+
+.mines-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.mines-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mines-grid--6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.mines-grid--8 {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.mines-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--section);
+  overflow: hidden;
+}
+
+.mines-cell--hidden:not(:disabled) {
+  background: linear-gradient(160deg, var(--bg-2), var(--section));
+  border-color: rgb(217 192 138 / 0.4);
+}
+
+.mines-cell--safe {
+  background: rgb(127 224 160 / 0.12);
+  border-color: rgb(127 224 160 / 0.4);
+}
+
+.mines-cell--bonus {
+  background: rgb(217 192 138 / 0.22);
+  border-color: var(--gold);
+}
+
+.mines-cell--mine {
+  opacity: 0.7;
+}
+
+.mines-cell--exploded {
+  background: rgb(232 115 90 / 0.3);
+  border-color: var(--danger);
+}
+
+.mines-gem {
+  width: 40%;
+  aspect-ratio: 1;
+  background: var(--luck);
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+
+.mines-bomb {
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgb(232 115 90 / 0.25);
+}
+
+.mines-bonus {
+  font-family: var(--serif);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--gold);
+  writing-mode: horizontal-tb;
+  transform: rotate(-20deg);
+}
+
+.mines-grid--8 .mines-bonus {
+  font-size: 6px;
+}
+
+.plinko {
+  width: 100%;
+  height: auto;
+}
+
+.plinko-peg {
+  fill: var(--cream);
+  opacity: 0.7;
+}
+
+.plinko-ball {
+  fill: var(--gold);
+  stroke: var(--accent-text);
+  stroke-width: 1;
+}
+
+.plinko-cup rect {
+  fill: var(--section);
+  stroke: var(--line);
+}
+
+.plinko-cup--plus rect {
+  fill: rgb(127 224 160 / 0.14);
+}
+
+.plinko-cup--minus rect {
+  fill: rgb(232 115 90 / 0.12);
+}
+
+.plinko-cup rect.is-hit {
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+.plinko-cup text {
+  font-size: 7.5px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.coin-stage {
+  display: grid;
+  place-items: center;
+  height: 170px;
+  perspective: 800px;
+}
+
+.coin {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  transform-style: preserve-3d;
+}
+
+.coin-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 4px solid var(--gold);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--cream), var(--gold) 70%);
+  color: var(--accent-text);
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  backface-visibility: hidden;
+}
+
+.coin-face--tails {
+  transform: rotateY(180deg);
+}
+
+.bj-table {
+  display: grid;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: radial-gradient(ellipse at top, var(--section), var(--bg-2));
+}
+
+.bj-hand {
+  display: grid;
+  gap: 8px;
+}
+
+.bj-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 74px;
+}
+
+.pcard {
+  display: grid;
+  align-content: space-between;
+  width: 52px;
+  height: 74px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--cream);
+  color: #1d2a24;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.pcard span:last-child {
+  justify-self: end;
+}
+
+.pcard--red {
+  color: #b23a2a;
+}
+
+.pcard--back {
+  background: repeating-linear-gradient(45deg, var(--gold) 0 4px, var(--accent-text) 4px 8px);
+  border: 2px solid var(--cream);
+}
+
+.bj-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+/* ── «Ещё»: shortcut tiles (shop, wheel, craft, album…) ──── */
+.more-tile {
+  position: relative;
+}
+
+.more-tile-icon {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.more-tile-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Craft (D-170): picked cards are outlined ───────────── */
+.card-tile.is-active {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.craft-result .gc {
+  max-width: 320px;
+}
+
+/* ── D-177: header facts (not buttons), search in «Ещё» and for a player ── */
+.header-exp-left {
+  font-size: 10px;
+  color: var(--hint);
+  white-space: nowrap;
+}
+
+.header-balance {
+  pointer-events: none;
+}
+
+.more-search {
+  margin-bottom: 4px;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* ── D-178: auto-sell under the clover, the level centred in «Ещё», nick example ── */
+.header-luck {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.autosell-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--section);
+  color: var(--hint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.autosell-chip.is-on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.more-level {
+  display: grid;
+  justify-items: center;
+  width: min(220px, 70%);
+  margin: 0 auto 10px;
+  text-align: center;
+}
+
+.more-level .exp-bar {
+  width: 100%;
+}
+
+.nick-example {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}

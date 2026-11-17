@@ -1,0 +1,395 @@
+/* Game card. Size follows --card-width; everything else scales in em. */
+.gc {
+  --card-width: 320px;
+  position: relative;
+  width: var(--card-width);
+  aspect-ratio: 1.586;
+  border-radius: calc(var(--card-width) * 0.05);
+  overflow: hidden;
+  /* Tier colours win over bank colours (e.g. dark lemon ink on black mythic silk). */
+  --ink: var(--tier-ink, var(--bank-ink));
+  --hl: var(--tier-hl, var(--bank-hl, #ffe27a));
+  color: var(--ink);
+  font-size: calc(var(--card-width) / 20);
+  isolation: isolate;
+  box-shadow:
+    0 0.6em 1.6em rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  user-select: none;
+  transform-style: preserve-3d;
+}
+
+.gc > div,
+.gc-sheen {
+  position: absolute;
+  inset: 0;
+  /* Every layer follows the card's corners: tier rims are inset shadows on these layers. */
+  border-radius: inherit;
+}
+
+.gc-body {
+  background: linear-gradient(135deg, var(--bank-from), var(--bank-to));
+}
+
+.gc-pattern {
+  background-image: var(--pattern);
+  background-size: 2.2em 2.2em;
+}
+
+.gc-material,
+.gc-sheen {
+  pointer-events: none;
+}
+
+/* ── Content ─────────────────────────────────────────────── */
+.gc .gc-top,
+.gc .gc-middle,
+.gc .gc-number,
+.gc .gc-bottom,
+.gc .gc-mark {
+  inset: auto;
+  z-index: 2;
+}
+
+.gc .gc-top {
+  top: 0.8em;
+  left: 0.9em;
+  right: 0.9em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gc-bank {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 700;
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+}
+
+.gc-logo {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+.gc-tier {
+  font-size: 0.62em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3em 0.7em;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.28);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.gc-tier--rare {
+  background: linear-gradient(90deg, #00e5ff, #ff2fd6);
+  color: #0a0a12;
+}
+
+.gc-tier--epic {
+  background: linear-gradient(90deg, #ffe08a, #c58b12);
+  color: #2a1a00;
+}
+
+.gc-tier--legendary {
+  background: linear-gradient(90deg, #f4f7fb, #a9b4c6, #f4f7fb);
+  color: #1d2533;
+}
+
+.gc-tier--mythic {
+  background: linear-gradient(90deg, #8b5cf6, #ec4899, #f59e0b);
+  color: #fff;
+}
+
+.gc .gc-middle {
+  top: 2.9em;
+  left: 0.9em;
+  right: 0.9em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gc-chip {
+  width: 2.2em;
+  height: 1.65em;
+}
+
+.gc-balance {
+  font-weight: 800;
+  font-size: 0.95em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.gc .gc-number {
+  top: 5.15em;
+  left: 0.9em;
+  right: 0.9em;
+  display: flex;
+  justify-content: space-between;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.12em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+}
+
+.gc-digit--pattern {
+  color: var(--hl);
+  text-shadow:
+    0 0 0.6em color-mix(in srgb, var(--hl) 80%, transparent),
+    0 1px 1px rgb(0 0 0 / 0.25);
+  /* Opacity only: the glow is painted once and just breathes on the compositor. */
+  animation: gc-pulse 1.6s ease-in-out infinite;
+  will-change: opacity;
+}
+
+.gc-digit--ladder {
+  color: var(--hl);
+  border-bottom: 0.12em solid var(--hl);
+  box-shadow: 0 0.35em 0.5em -0.3em color-mix(in srgb, var(--hl) 90%, transparent);
+}
+
+.gc .gc-bottom {
+  left: 0.9em;
+  right: 0.9em;
+  bottom: 1.15em;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.gc-holder,
+.gc-expiry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+}
+
+.gc-owner,
+.gc-expiry-label {
+  opacity: 0.75;
+  font-weight: 600;
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+}
+
+.gc-expiry {
+  align-items: flex-end;
+}
+
+.gc .gc-mark {
+  left: 0;
+  right: 0;
+  bottom: 0.25em;
+  text-align: center;
+  font-size: 0.48em;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+/* ── Tier materials ──────────────────────────────────────── */
+
+/* Common: matte grey wash over a muted palette. */
+.gc--common .gc-body {
+  filter: saturate(0.45) brightness(0.9);
+}
+
+.gc--common .gc-material {
+  background: linear-gradient(160deg, rgb(150 150 160 / 0.35), rgb(40 40 48 / 0.35));
+}
+
+/* Rare: neon rim and glow. */
+.gc--rare {
+  box-shadow:
+    0 0 0.9em rgb(0 229 255 / 0.45),
+    0 0.6em 1.6em rgb(0 0 0 / 0.45);
+}
+
+.gc--rare .gc-material {
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 0.12em rgb(0 229 255 / 0.9),
+    inset 0 0 1.2em rgb(255 47 214 / 0.45);
+}
+
+/* Epic: gold foil. */
+.gc--epic .gc-material {
+  background: linear-gradient(
+    120deg,
+    rgb(255 224 138 / 0.55),
+    rgb(197 139 18 / 0.25) 45%,
+    rgb(255 240 190 / 0.5) 70%,
+    rgb(150 100 10 / 0.35)
+  );
+  mix-blend-mode: overlay;
+  box-shadow: inset 0 0 0 0.12em rgb(255 214 120 / 0.85);
+}
+
+/* Legendary: platinum with a holographic sheen; dark ink reads on the light metal. */
+.gc--legendary {
+  --tier-ink: #18202e;
+  --tier-hl: #7b1fa2;
+}
+
+.gc--legendary .gc-body {
+  filter: saturate(0.55) brightness(1.15);
+}
+
+.gc--legendary .gc-material {
+  background: linear-gradient(
+    135deg,
+    rgb(244 247 251 / 0.55),
+    rgb(169 180 198 / 0.4),
+    rgb(244 247 251 / 0.5)
+  );
+  mix-blend-mode: soft-light;
+  box-shadow: inset 0 0 0 0.12em rgb(230 236 245 / 0.9);
+}
+
+.gc--legendary .gc-sheen {
+  /* Bigger than the card and rotated by transform: the GPU turns it, nothing is repainted. */
+  inset: -50%;
+  border-radius: 0;
+  background: conic-gradient(
+    #ff6ad5,
+    #c774e8,
+    #ad8cff,
+    #8795e8,
+    #94d0ff,
+    #7af5c2,
+    #ffef78,
+    #ff6ad5
+  );
+  mix-blend-mode: color-dodge;
+  opacity: 0.32;
+  animation: gc-holo 6s linear infinite;
+  will-change: transform;
+}
+
+/* Mythic: black silk with a moving highlight; the bank colour only as a thin accent. */
+.gc--mythic {
+  --tier-ink: #f4f1ff;
+  --tier-hl: #ffd24a;
+}
+
+.gc--mythic .gc-body {
+  background:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      color-mix(in srgb, var(--bank-from) 35%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(135deg, #17141f, #050409 60%, #1a1424);
+}
+
+.gc--mythic .gc-pattern {
+  opacity: 0.35;
+}
+
+.gc--mythic .gc-material {
+  box-shadow:
+    inset 0 0 0 0.1em color-mix(in srgb, var(--bank-from) 70%, white),
+    inset 0 0 2em rgb(139 92 246 / 0.35);
+}
+
+.gc--mythic .gc-sheen {
+  /* A highlight band moved by transform (compositor only), not by background-position. */
+  inset: 0 -100%;
+  border-radius: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgb(255 255 255 / 0.22) 50%,
+    transparent 60%
+  );
+  animation: gc-silk 4.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes gc-holo {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gc-silk {
+  0%,
+  100% {
+    transform: translateX(-35%);
+  }
+  50% {
+    transform: translateX(35%);
+  }
+}
+
+@keyframes gc-pulse {
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-sheen,
+  .gc-digit--pattern {
+    animation: none !important;
+  }
+}
+
+/*
+ * Lists (holder grid, fan, ribbon, profiles): the same look painted once — no animation, no blend
+ * layers, no backdrop blur and no 3D layer per card; each card is its own paint island.
+ */
+.gc--static {
+  transform-style: flat;
+  contain: layout paint style;
+}
+
+.gc--static .gc-sheen,
+.gc--static .gc-digit--pattern {
+  animation: none;
+}
+
+.gc--static .gc-sheen,
+.gc--static .gc-digit--pattern {
+  will-change: auto;
+}
+
+.gc--static .gc-sheen,
+.gc--static .gc-material {
+  mix-blend-mode: normal;
+}
+
+.gc--static.gc--legendary .gc-sheen {
+  opacity: 0.18;
+}
+
+.gc--static .gc-tier {
+  backdrop-filter: none;
+}
+
+/* Fills its container (grids, sheets) without an inline style that would defeat memoisation. */
+.gc--fluid {
+  --card-width: 100%;
+}
+
+/* Card back used by the spinning ribbon: palette only, no tier and no number. */
+.gc-back {
+  width: var(--card-width, 150px);
+  aspect-ratio: 1.586;
+  border-radius: calc(var(--card-width, 150px) * 0.05);
+  background: var(--pattern), linear-gradient(135deg, var(--bank-from), var(--bank-to));
+  background-size:
+    18px 18px,
+    cover;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.35);
+}

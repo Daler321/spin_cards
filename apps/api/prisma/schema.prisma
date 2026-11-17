@@ -1,0 +1,960 @@
+// SpinCards database schema (TZ section 12). Money columns are BIGINT minor units; multipliers and
+// chances are integer basis points. Constraints Prisma cannot express (partial unique indexes,
+// append-only triggers, CHECKs) live in the SQL of the migrations.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Region {
+  RU
+  US
+}
+
+enum Tier {
+  common
+  rare
+  epic
+  legendary
+  mythic
+}
+
+enum CardStatus {
+  active
+  expired
+  pooled
+  cashed
+  /// D-129: kept forever in the player's album (no balance, never expires or re-drops).
+  trophy
+  /// D-170: used up by a craft (no owner, never re-drops).
+  crafted
+}
+
+enum LedgerAccountType {
+  wallet
+  card
+}
+
+enum LedgerReason {
+  signup_bonus
+  transfer
+  wheel
+  card_issue
+  card_burn
+  spin_cost
+  cashout
+  daily
+  chest
+  shop
+  referral
+  convert_in
+  convert_out
+  topup
+  restore
+  extend
+  admin_adjust
+  stars_purchase
+  stars_refund
+  quest
+  season_reward
+  trophy
+  p2p
+  /// D-132: money and card balances wiped at a season change, and the next season's start money.
+  season_reset
+  season_start
+  /// D-133: the reward of an achievement.
+  achievement
+  /// D-169: a mini-game bet and its payout.
+  minigame_bet
+  minigame_win
+  /// D-170: the craft fee; D-171: the balance a Stars upgrade adds; D-172, D-173: bonuses.
+  craft_fee
+  card_upgrade
+  album_income
+  nick_bonus
+}
+
+/// D-169: mini-games played for game money from the wallet.
+enum MiniGame {
+  mines
+  plinko
+  coinflip
+  blackjack
+}
+
+enum MiniGameStatus {
+  active
+  finished
+  /// The round outlived its season (the money was wiped at the season change): closed unpaid.
+  expired
+}
+
+enum QuestKind {
+  daily
+  season
+}
+
+enum SpinPaymentSource {
+  wallet
+  card
+  free
+  stars
+}
+
+enum ConfigStatus {
+  draft
+  simulated
+  active
+  archived
+}
+
+enum SeasonStatus {
+  planned
+  active
+  finished
+}
+
+enum LeaderboardType {
+  balance
+  collection
+  season
+  album
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  failed
+}
+
+enum ReferralStatus {
+  pending
+  rewarded
+}
+
+enum OutboxStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+enum AdminRole {
+  owner
+  analyst
+  support
+}
+
+// ─── Players and money ──────────────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  telegramId           BigInt    @unique @map("telegram_id")
+  username             String?
+  firstName            String    @map("first_name")
+  lastName             String?   @map("last_name")
+  languageCode         String?   @map("language_code")
+  photoUrl             String?   @map("photo_url")
+  region               Region    @default(RU)
+  exp                  Int       @default(0)
+  level                Int       @default(1)
+  /// D-132: the season the player's money, cards and level belong to (reset when it changes).
+  moneySeasonId        String?   @map("money_season_id") @db.Uuid
+  totalSpins           Int       @default(0) @map("total_spins")
+  returnLuckyPending   Boolean   @default(false) @map("return_lucky_pending")
+  freeSpinsAvailable   Int       @default(0) @map("free_spins_available")
+  freeSpinsAnchorAt    DateTime  @default(now()) @map("free_spins_anchor_at") @db.Timestamptz(3)
+  /// Spins already turned into chests (opened or forfeited); chests = (total_spins - this) / every.
+  chestSpinsUsed       Int       @default(0) @map("chest_spins_used")
+  chestLevel           Int       @default(1) @map("chest_level")
+  wheelSpunAt          DateTime? @map("wheel_spun_at") @db.Timestamptz(3)
+  /// One-off minimum tier for the next spin (7th daily reward).
+  guaranteedFloor      Tier?     @map("guaranteed_floor")
+  referralCode         String    @unique @map("referral_code")
+  referrerId           String?   @map("referrer_id") @db.Uuid
+  isBanned             Boolean   @default(false) @map("is_banned")
+  notificationsEnabled Boolean   @default(true) @map("notifications_enabled")
+  hideFromLeaderboard  Boolean   @default(false) @map("hide_from_leaderboard")
+  /// Set when Telegram reports the bot is blocked; cleared on /start or unblock.
+  botBlockedAt         DateTime? @map("bot_blocked_at") @db.Timestamptz(3)
+  experimentGroup      String?   @map("experiment_group")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt           DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  referrer          User?                @relation("Referrer", fields: [referrerId], references: [id])
+  referred          User[]               @relation("Referrer")
+  /// D-129: album slots bought on top of the free ones.
+  showcaseSlots     Int                  @default(0) @map("showcase_slots")
+  /// D-137: up to three achievement ids shown next to the name in the rating (empty: the rarest).
+  pinnedMedals      String[]             @default([]) @map("pinned_medals")
+  /// D-175: dropped cards of these tiers are cashed out at once.
+  autoCashoutTiers  Tier[]               @default([]) @map("auto_cashout_tiers")
+  /// D-172: the last album income claim.
+  albumIncomeAt     DateTime?            @map("album_income_at") @db.Timestamptz(3)
+  /// D-173: the last name check, whether it saw the tag, and the last bonus claim.
+  nickCheckedAt     DateTime?            @map("nick_checked_at") @db.Timestamptz(3)
+  nickHasTag        Boolean              @default(false) @map("nick_has_tag")
+  nickBonusAt       DateTime?            @map("nick_bonus_at") @db.Timestamptz(3)
+  crafts            CardCraft[]
+  wallets           Wallet[]
+  cards             Card[]
+  holders           UserHolder[]
+  spins             Spin[]
+  counters          UserCounter[]
+  buffs             UserBuff[]
+  dailyStreak       DailyStreak?
+  referralsMade     Referral[]           @relation("ReferralReferrer")
+  referralOf        Referral?            @relation("ReferralReferred")
+  seasonStats       UserSeasonStat[]
+  payments          Payment[]
+  notifications     NotificationOutbox[]
+  refreshTokens     RefreshToken[]
+  idempotency       IdempotencyKey[]
+  conversions       CurrencyConversion[]
+  quests            QuestProgress[]
+  seasonResults     SeasonResult[]
+  album             AlbumEntry[]
+  sentTransfers     PlayerTransfer[]     @relation("TransferSender")
+  receivedTransfers PlayerTransfer[]     @relation("TransferRecipient")
+  userAchievements  UserAchievement[]
+  miniGameRounds    MiniGameRound[]
+
+  @@index([referrerId])
+  @@index([createdAt])
+  @@index([lastSeenAt])
+  @@map("users")
+}
+
+model Currency {
+  code     String  @id
+  symbol   String
+  decimals Int
+  isActive Boolean @default(true) @map("is_active")
+
+  wallets Wallet[]
+
+  @@map("currencies")
+}
+
+model Wallet {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  currency  String
+  /// Cache of SUM(ledger_entries.delta) for this account.
+  balance   BigInt   @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User     @relation(fields: [userId], references: [id])
+  currencyInfo Currency @relation(fields: [currency], references: [code])
+
+  @@unique([userId, currency])
+  @@map("wallets")
+}
+
+/// Append-only journal: UPDATE/DELETE are rejected by a trigger.
+model LedgerEntry {
+  id           BigInt            @id @default(autoincrement())
+  accountType  LedgerAccountType @map("account_type")
+  accountId    String            @map("account_id") @db.Uuid
+  /// Owner of the account at posting time.
+  userId       String?           @map("user_id") @db.Uuid
+  currency     String
+  delta        BigInt
+  balanceAfter BigInt            @map("balance_after")
+  reason       LedgerReason
+  refType      String?           @map("ref_type")
+  refId        String?           @map("ref_id")
+  seasonId     String            @map("season_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([accountType, accountId, id])
+  @@index([userId, createdAt])
+  @@index([reason, createdAt])
+  @@index([createdAt])
+  @@map("ledger_entries")
+}
+
+model CurrencyConversion {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  fromCurrency String   @map("from_currency")
+  toCurrency   String   @map("to_currency")
+  amountFrom   BigInt   @map("amount_from")
+  fee          BigInt
+  amountTo     BigInt   @map("amount_to")
+  rateNano     BigInt   @map("rate_nano")
+  rateId       String   @map("rate_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User         @relation(fields: [userId], references: [id])
+  rate ExchangeRate @relation(fields: [rateId], references: [id])
+
+  @@index([userId, fromCurrency, createdAt])
+  @@map("currency_conversions")
+}
+
+/// Directed rate history: 1 unit of `from` = rate_nano / 10^9 units of `to`.
+model ExchangeRate {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  fromCurrency String   @map("from_currency")
+  toCurrency   String   @map("to_currency")
+  rateNano     BigInt   @map("rate_nano")
+  feeBp        Int      @map("fee_bp")
+  validFrom    DateTime @default(now()) @map("valid_from") @db.Timestamptz(3)
+  changedBy    String?  @map("changed_by")
+
+  conversions CurrencyConversion[]
+
+  @@index([fromCurrency, toCurrency, validFrom(sort: Desc)])
+  @@map("exchange_rates")
+}
+
+// ─── Cards ──────────────────────────────────────────────────────────────────
+
+model Bank {
+  id        String @id
+  region    Region
+  color     String
+  name      String
+  /// Palette and pattern settings for the card renderer.
+  design    Json   @default("{}")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  cards Card[]
+
+  @@map("banks")
+}
+
+/// Number is unique among active/expired cards (partial unique index in SQL).
+model Card {
+  id                  String     @id @default(uuid(7)) @db.Uuid
+  seasonId            String     @map("season_id") @db.Uuid
+  ownerId             String?    @map("owner_id") @db.Uuid
+  bankId              String     @map("bank_id")
+  region              Region
+  currency            String
+  tier                Tier
+  number              String     @db.Char(16)
+  numberPatterns      Json       @map("number_patterns")
+  rarityScore         Int        @map("rarity_score")
+  baseLimit           BigInt     @map("base_limit")
+  /// Cache of SUM(ledger_entries.delta) for this account.
+  balance             BigInt     @default(0)
+  initialBalance      BigInt     @map("initial_balance")
+  luckBonusBp         Int        @map("luck_bonus_bp")
+  status              CardStatus
+  ownersCount         Int        @default(1) @map("owners_count")
+  extendedCount       Int        @default(0) @map("extended_count")
+  /// Null while the owner has not decided (cash out or keep) after the drop.
+  heldAt              DateTime?  @map("held_at") @db.Timestamptz(3)
+  /// D-121: the window of the per-card spin limit (opened by the first spin paid with the card).
+  spinWindowStartedAt DateTime?  @map("spin_window_started_at") @db.Timestamptz(3)
+  spinsInWindow       Int        @default(0) @map("spins_in_window")
+  issuedAt            DateTime   @map("issued_at") @db.Timestamptz(3)
+  expiresAt           DateTime   @map("expires_at") @db.Timestamptz(3)
+  graceUntil          DateTime?  @map("grace_until") @db.Timestamptz(3)
+  pooledAt            DateTime?  @map("pooled_at") @db.Timestamptz(3)
+  /// D-168: the card design frozen when the card went into the album (null on trophies = classic).
+  design              String?
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  season Season @relation(fields: [seasonId], references: [id])
+  owner  User?  @relation(fields: [ownerId], references: [id])
+  bank   Bank   @relation(fields: [bankId], references: [id])
+  spins  Spin[]
+
+  @@index([ownerId, status])
+  @@index([status, tier, region, pooledAt])
+  @@index([status, graceUntil])
+  @@index([expiresAt])
+  @@index([number])
+  @@index([updatedAt])
+  @@map("cards")
+}
+
+model Holder {
+  id        String @id
+  sortOrder Int    @default(0) @map("sort_order")
+
+  owners UserHolder[]
+
+  @@map("holders")
+}
+
+model UserHolder {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  holderId   String   @map("holder_id")
+  /// default | currency | stars | admin
+  source     String
+  acquiredAt DateTime @default(now()) @map("acquired_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id])
+  holder Holder @relation(fields: [holderId], references: [id])
+
+  @@index([userId])
+  @@map("user_holders")
+}
+
+// ─── Game ───────────────────────────────────────────────────────────────────
+
+/// Rows are never deleted (trigger).
+model Spin {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  seasonId        String            @map("season_id") @db.Uuid
+  packId          String            @map("pack_id")
+  paymentSource   SpinPaymentSource @map("payment_source")
+  paymentCardId   String?           @map("payment_card_id") @db.Uuid
+  price           BigInt
+  currency        String
+  configVersionId Int               @map("config_version_id")
+  rolledParams    Json              @map("rolled_params")
+  cardId          String            @map("card_id") @db.Uuid
+  lucky           String?
+  pityApplied     String?           @map("pity_applied")
+  nearMiss        Json?             @map("near_miss")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user          User              @relation(fields: [userId], references: [id])
+  season        Season            @relation(fields: [seasonId], references: [id])
+  card          Card              @relation(fields: [cardId], references: [id])
+  configVersion GameConfigVersion @relation(fields: [configVersionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([seasonId, createdAt])
+  @@index([cardId])
+  @@index([createdAt])
+  @@map("spins")
+}
+
+/// D-169: one mini-game round. Mines and 21 stay `active` across requests; `state` holds the hidden
+/// part (mines, the shoe) that the client never sees until the round ends.
+model MiniGameRound {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  seasonId   String         @map("season_id") @db.Uuid
+  game       MiniGame
+  currency   String
+  /// Total stake in minor units, a 21 double included.
+  bet        BigInt
+  payout     BigInt         @default(0)
+  status     MiniGameStatus @default(active)
+  state      Json
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  finishedAt DateTime?      @map("finished_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([userId, game, status])
+  @@index([seasonId, createdAt])
+  @@map("mini_game_rounds")
+}
+
+/// D-170: one craft: the used cards, the roll and the new card.
+model CardCraft {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  seasonId     String   @map("season_id") @db.Uuid
+  tier         Tier
+  inputCardIds String[] @map("input_card_ids") @db.Uuid
+  success      Boolean
+  resultCardId String   @map("result_card_id") @db.Uuid
+  currency     String
+  fee          BigInt
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([seasonId, createdAt])
+  @@map("card_crafts")
+}
+
+/// Luck meter, pity and bad-streak counters per user and pack.
+model UserCounter {
+  id             String @id @default(uuid(7)) @db.Uuid
+  userId         String @map("user_id") @db.Uuid
+  packId         String @map("pack_id")
+  luckMeter      Int    @default(0) @map("luck_meter")
+  sinceRare      Int    @default(0) @map("since_rare")
+  sinceEpic      Int    @default(0) @map("since_epic")
+  sinceLegendary Int    @default(0) @map("since_legendary")
+  badStreak      Int    @default(0) @map("bad_streak")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, packId])
+  @@map("user_counters")
+}
+
+model UserBuff {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  /// Before D-147: a percentage boost. Kept for history; new rows use luckPoints or multiplierBp.
+  boostBp      Int?      @map("boost_bp")
+  /// D-147: flat luck points (free bonuses), for spinsLeft spins.
+  luckPoints   Int?      @map("luck_points")
+  /// D-147: luck multiplier (Stars), until expiresAt.
+  multiplierBp Int?      @map("multiplier_bp")
+  /// Null for a buff that lasts until expiresAt instead.
+  spinsLeft    Int?      @map("spins_left")
+  /// Shop buffs apply to one pack; null = any pack (daily, chest, wheel).
+  packId       String?   @map("pack_id")
+  /// daily | shop | chest | admin
+  source       String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, spinsLeft])
+  @@map("user_buffs")
+}
+
+model DailyStreak {
+  userId            String    @id @map("user_id") @db.Uuid
+  streak            Int       @default(0)
+  lastClaimDate     DateTime? @map("last_claim_date") @db.Date
+  forgivenessUsedAt DateTime? @map("forgiveness_used_at") @db.Date
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("daily_streaks")
+}
+
+model Referral {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  referrerId          String         @map("referrer_id") @db.Uuid
+  referredId          String         @unique @map("referred_id") @db.Uuid
+  status              ReferralStatus @default(pending)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  rewardedAt          DateTime?      @map("rewarded_at") @db.Timestamptz(3)
+  /// Friend's spins up to this time have been paid out as commission.
+  commissionPaidUntil DateTime?      @map("commission_paid_until") @db.Timestamptz(3)
+
+  referrer User @relation("ReferralReferrer", fields: [referrerId], references: [id])
+  referred User @relation("ReferralReferred", fields: [referredId], references: [id])
+
+  @@index([referrerId, createdAt])
+  @@map("referrals")
+}
+
+/// At most one version is active (partial unique index in SQL).
+model GameConfigVersion {
+  id               Int          @id @default(autoincrement())
+  payload          Json
+  status           ConfigStatus
+  simulationReport Json?        @map("simulation_report")
+  comment          String?
+  createdBy        String?      @map("created_by")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  activatedAt      DateTime?    @map("activated_at") @db.Timestamptz(3)
+
+  spins       Spin[]
+  experiments GameConfigExperiment[]
+
+  @@index([status])
+  @@map("game_config_versions")
+}
+
+/// A/B stub (TZ 15.2): players whose experiment_group matches get this version instead of the active one.
+model GameConfigExperiment {
+  group     String   @id
+  versionId Int      @map("version_id")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  version GameConfigVersion @relation(fields: [versionId], references: [id])
+
+  @@map("game_config_experiments")
+}
+
+// ─── Seasons and leaderboards ───────────────────────────────────────────────
+
+model Season {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  name        String
+  startsAt    DateTime     @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime?    @map("ends_at") @db.Timestamptz(3)
+  status      SeasonStatus
+  /// D-168: card design of the season (CARD_DESIGNS in packages/shared); null = the latest.
+  designSetId String?      @map("design_set_id")
+
+  ledger       LedgerEntry[]
+  cards        Card[]
+  spins        Spin[]
+  stats        UserSeasonStat[]
+  leaderboards LeaderboardSnapshot[]
+  results      SeasonResult[]
+  quests       QuestProgress[]
+  events       Event[]
+  miniGames    MiniGameRound[]
+  crafts       CardCraft[]
+
+  @@map("seasons")
+}
+
+model UserSeasonStat {
+  id             String @id @default(uuid(7)) @db.Uuid
+  userId         String @map("user_id") @db.Uuid
+  seasonId       String @map("season_id") @db.Uuid
+  spinsCount     Int    @default(0) @map("spins_count")
+  cardsIssued    Int    @default(0) @map("cards_issued")
+  bestRarity     Int    @default(0) @map("best_rarity")
+  cashedOutMinor BigInt @default(0) @map("cashed_out_minor")
+  /// D-125: season points, the rarity of every card dropped this season (the season rating).
+  points         BigInt @default(0)
+
+  user   User   @relation(fields: [userId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([userId, seasonId])
+  @@map("user_season_stats")
+}
+
+model LeaderboardSnapshot {
+  id       String          @id @default(uuid(7)) @db.Uuid
+  seasonId String          @map("season_id") @db.Uuid
+  type     LeaderboardType
+  userId   String          @map("user_id") @db.Uuid
+  score    BigInt
+  rank     Int
+  takenAt  DateTime        @map("taken_at") @db.Timestamptz(3)
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([seasonId, type, takenAt])
+  @@map("leaderboard_snapshots")
+}
+
+// ─── Telegram Stars (behind stars_enabled) ──────────────────────────────────
+
+model StarProduct {
+  id         String  @id
+  /// pack | holder | currency_bundle | buff
+  kind       String
+  refId      String? @map("ref_id")
+  starsPrice Int     @map("stars_price")
+  isActive   Boolean @default(true) @map("is_active")
+  payload    Json    @default("{}")
+
+  payments Payment[]
+
+  @@map("star_products")
+}
+
+/// Rows are never deleted (trigger).
+model Payment {
+  id                      String        @id @default(uuid(7)) @db.Uuid
+  userId                  String        @map("user_id") @db.Uuid
+  productId               String        @map("product_id")
+  status                  PaymentStatus
+  starsAmount             Int           @map("stars_amount")
+  telegramPaymentChargeId String?       @unique @map("telegram_payment_charge_id")
+  idempotencyKey          String        @unique @map("idempotency_key")
+  payload                 Json          @default("{}")
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  paidAt                  DateTime?     @map("paid_at") @db.Timestamptz(3)
+  refundedAt              DateTime?     @map("refunded_at") @db.Timestamptz(3)
+
+  user    User        @relation(fields: [userId], references: [id])
+  product StarProduct @relation(fields: [productId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("payments")
+}
+
+// ─── Analytics and notifications ────────────────────────────────────────────
+
+model Event {
+  id        BigInt   @id @default(autoincrement())
+  userId    String?  @map("user_id") @db.Uuid
+  seasonId  String   @map("season_id") @db.Uuid
+  name      String
+  props     Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
+  @@map("events")
+}
+
+model DailyStat {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  date      DateTime @db.Date
+  metric    String
+  dimension String   @default("")
+  value     BigInt
+
+  @@unique([date, metric, dimension])
+  @@map("daily_stats")
+}
+
+model NotificationOutbox {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  kind        String
+  payload     Json         @default("{}")
+  status      OutboxStatus @default(pending)
+  scheduledAt DateTime     @default(now()) @map("scheduled_at") @db.Timestamptz(3)
+  sentAt      DateTime?    @map("sent_at") @db.Timestamptz(3)
+  attempts    Int          @default(0)
+  lastError   String?      @map("last_error")
+  /// One message per event (e.g. card_expiring:<card>:<expiry>); null for broadcasts.
+  dedupeKey   String?      @unique @map("dedupe_key")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  broadcastId String?      @map("broadcast_id") @db.Uuid
+
+  user      User       @relation(fields: [userId], references: [id])
+  broadcast Broadcast? @relation(fields: [broadcastId], references: [id])
+
+  @@index([status, scheduledAt])
+  @@index([broadcastId, status])
+  @@map("notifications_outbox")
+}
+
+/// Admin broadcast (TZ 14): one outbox row per recipient, sent at the shared rate limit.
+model Broadcast {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  text        String
+  /// all | active | inactive
+  segment     String
+  /// Activity window in days for the active/inactive segments.
+  segmentDays Int?     @map("segment_days")
+  recipients  Int      @default(0)
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  messages NotificationOutbox[]
+
+  @@map("broadcasts")
+}
+
+// ─── Admin ──────────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  login        String    @unique
+  passwordHash String    @map("password_hash")
+  totpSecret   String?   @map("totp_secret")
+  role         AdminRole
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+
+  sessions AdminSession[]
+
+  @@map("admin_users")
+}
+
+/// Admin panel sessions: the cookie holds a random token, only its SHA-256 is stored.
+model AdminSession {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  adminId    String    @map("admin_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  admin AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@map("admin_sessions")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  /// admin | system
+  actorType  String   @map("actor_type")
+  actorId    String?  @map("actor_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  reason     String?
+  payload    Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+/// Operational settings edited in the admin panel (not economy: that lives in config versions).
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("app_settings")
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?  @map("updated_by")
+
+  @@map("feature_flags")
+}
+
+// ─── Infrastructure ─────────────────────────────────────────────────────────
+
+/// Stored responses of mutating requests, unique per user and key.
+model IdempotencyKey {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  key            String
+  route          String
+  requestHash    String   @map("request_hash")
+  responseStatus Int      @map("response_status")
+  responseBody   Json     @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}
+
+/// Opaque refresh tokens (only the SHA-256 hash is stored), rotated on use.
+model RefreshToken {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  familyId     String    @map("family_id") @db.Uuid
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+/// D-124: a player's daily and season quests. Target and reward are copied from the config when the
+/// quest is assigned, so a config change never moves a goal under the player's feet.
+model QuestProgress {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  seasonId    String    @map("season_id") @db.Uuid
+  kind        QuestKind
+  /// The Moscow day (YYYY-MM-DD) of a daily quest, the season id of a season quest.
+  period      String
+  questId     String    @map("quest_id")
+  metric      String
+  target      Int
+  /// The lowest tier that counts (cards_tier quests).
+  tier        Tier?
+  reward      Json
+  progress    Int       @default(0)
+  /// Metric state, e.g. cards per bank or the last visit day.
+  meta        Json      @default("{}")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  claimedAt   DateTime? @map("claimed_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([userId, kind, period, questId])
+  @@index([userId, period])
+  @@map("quest_progress")
+}
+
+/// D-125: the final standings of a finished season (kept for profiles) and the paid rewards.
+model SeasonResult {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  seasonId  String   @map("season_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  rank      Int
+  points    BigInt
+  /// Reward money in minor units of `currency`, if the rank had one.
+  reward    BigInt?
+  currency  String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  season Season @relation(fields: [seasonId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([seasonId, userId])
+  @@index([userId])
+  @@map("season_results")
+}
+
+/// D-126: the permanent collection. One row per thing a player ever got: a bank and tier pair
+/// (`bank:<bankId>:<tier>`) or a number pattern (`pattern:<id>`). Kept when the card is gone.
+model AlbumEntry {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  key        String
+  /// The number of the card that brought it (shown in the album).
+  cardNumber String   @map("card_number")
+  seasonId   String   @map("season_id") @db.Uuid
+  firstAt    DateTime @default(now()) @map("first_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, key])
+  @@map("album_entries")
+}
+
+/// D-131: money sent between players by @username (the ledger holds the postings).
+model PlayerTransfer {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  fromUserId String   @map("from_user_id") @db.Uuid
+  toUserId   String   @map("to_user_id") @db.Uuid
+  currency   String
+  /// Taken from the sender; the recipient gets amount - fee.
+  amount     BigInt
+  fee        BigInt
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  from User @relation("TransferSender", fields: [fromUserId], references: [id])
+  to   User @relation("TransferRecipient", fields: [toUserId], references: [id])
+
+  @@index([fromUserId, createdAt])
+  @@index([toUserId, createdAt])
+  @@map("player_transfers")
+}
+
+/// D-133: medals of a player. `scope` is '' for a permanent achievement, the season id for one
+/// earned in a season (season medals can be earned again in the next season).
+model UserAchievement {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  achievementId String   @map("achievement_id")
+  scope         String   @default("")
+  /// The season name when earned (shown with season medals).
+  seasonName    String?  @map("season_name")
+  earnedAt      DateTime @default(now()) @map("earned_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, achievementId, scope])
+  @@map("user_achievements")
+}
